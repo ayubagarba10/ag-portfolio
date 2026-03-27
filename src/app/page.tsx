@@ -5,6 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import WelcomeAnimation from '@/components/landing/WelcomeAnimation'
 import CinematicHero from '@/components/landing/CinematicHero'
 import OrbitNav from '@/components/landing/OrbitNav'
+import Link from 'next/link'
+import { motion } from 'framer-motion'
+import { Settings } from 'lucide-react'
 
 interface OwnerProfile {
   name: string
@@ -23,11 +26,8 @@ export default function HomePage() {
       .select('name, headline, profile_image_url')
       .limit(1)
       .single()
-      .then(({ data }) => {
-        if (data) setProfile(data)
-      })
+      .then(({ data }) => { if (data) setProfile(data) })
 
-    // Track visit
     fetch('/api/analytics', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -39,32 +39,70 @@ export default function HomePage() {
 
   return (
     <main className="relative w-screen h-screen overflow-hidden bg-slate-950">
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(30,41,59,0.8)_0%,_rgba(2,6,23,1)_70%)]" />
+      {/* z-0: Background radial gradient */}
+      <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,_rgba(30,41,59,0.8)_0%,_rgba(2,6,23,1)_70%)]" />
 
-      {/* Subtle grid overlay */}
+      {/* z-0: Subtle grid */}
       <div
-        className="absolute inset-0 opacity-[0.03]"
+        className="absolute inset-0 z-0 opacity-[0.025]"
         style={{
           backgroundImage:
-            'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
+            'linear-gradient(rgba(255,255,255,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.15) 1px, transparent 1px)',
           backgroundSize: '60px 60px',
         }}
       />
 
-      {/* Welcome doors animation */}
+      {/* z-[100]: Welcome doors animation */}
       <WelcomeAnimation onComplete={handleWelcomeDone} />
 
-      {/* Hero + orbit nav */}
+      {/* z-10: Main content */}
       <div className="relative z-10 w-full h-full flex items-center justify-center">
-        <CinematicHero
-          profileImageUrl={profile?.profile_image_url || ''}
-          name={profile?.name || ''}
-          headline={profile?.headline || ''}
-          visible={welcomed}
-        />
-        <OrbitNav visible={welcomed} />
+
+        {/* The orbit container — sized to the photo card.
+            Orbit icons are positioned relative to THIS container's center.
+            overflow-visible lets icons extend beyond the card bounds. */}
+        <div className="relative w-[208px] h-[256px] md:w-[256px] md:h-[320px] overflow-visible">
+          {/* z-20: Orbit icons (below the card so card is in front) */}
+          <div className="absolute inset-0 z-[20]">
+            <OrbitNav visible={welcomed} />
+          </div>
+          {/* z-[25]: Photo card (on top of orbit lines, below tooltips) */}
+          <div className="relative z-[25] w-full h-full">
+            <CinematicHero
+              profileImageUrl={profile?.profile_image_url || ''}
+              name={profile?.name || ''}
+              headline={profile?.headline || ''}
+              visible={welcomed}
+            />
+          </div>
+        </div>
       </div>
+
+      {/* z-20: Owner login link — subtle top-right */}
+      <motion.div
+        className="absolute top-4 right-5 z-20"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: welcomed ? 1 : 0 }}
+        transition={{ delay: 1.5, duration: 0.6 }}
+      >
+        <Link
+          href="/login"
+          className="flex items-center gap-1.5 text-white/20 hover:text-white/50 transition-colors text-xs tracking-wide group"
+        >
+          <Settings className="w-3.5 h-3.5 group-hover:rotate-45 transition-transform duration-300" />
+          <span>Owner</span>
+        </Link>
+      </motion.div>
+
+      {/* z-10: Bottom hint */}
+      <motion.p
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 text-[10px] text-white/20 tracking-[0.25em] uppercase whitespace-nowrap"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: welcomed ? 1 : 0 }}
+        transition={{ delay: 2, duration: 0.8 }}
+      >
+        Explore · Click any icon
+      </motion.p>
     </main>
   )
 }

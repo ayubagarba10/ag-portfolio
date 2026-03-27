@@ -1,19 +1,22 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Briefcase, Star, User, BookOpen, Link as LinkIcon } from 'lucide-react'
 
+// 5 icons evenly at 72° apart, starting from top (-90 = top in this coordinate system).
+// angle=0 → TOP, angle=90 → RIGHT, angle=180 → BOTTOM, angle=-90/270 → LEFT
 const sections = [
   {
     id: 'projects',
     label: 'Projects',
     icon: Briefcase,
     href: '/projects',
-    preview: 'Work I\'ve built — apps, systems, and ideas brought to life.',
-    angle: -60,
+    preview: "Work I've built — apps, systems, and ideas brought to life.",
+    angle: -72,   // upper-left
     color: 'from-blue-500 to-cyan-400',
+    shadowColor: 'rgba(59,130,246,0.5)',
   },
   {
     id: 'experience',
@@ -21,8 +24,9 @@ const sections = [
     icon: Star,
     href: '/experience',
     preview: 'My professional journey and career milestones.',
-    angle: 0,
+    angle: 0,     // top
     color: 'from-violet-500 to-purple-400',
+    shadowColor: 'rgba(139,92,246,0.5)',
   },
   {
     id: 'about',
@@ -30,8 +34,9 @@ const sections = [
     icon: User,
     href: '/about',
     preview: 'Who I am beyond the resume.',
-    angle: 60,
+    angle: 72,    // upper-right
     color: 'from-emerald-500 to-teal-400',
+    shadowColor: 'rgba(16,185,129,0.5)',
   },
   {
     id: 'stories',
@@ -39,91 +44,125 @@ const sections = [
     icon: BookOpen,
     href: '/stories',
     preview: 'Personal moments, reflections, and life beyond work.',
-    angle: 120,
+    angle: 144,   // lower-right
     color: 'from-amber-500 to-orange-400',
+    shadowColor: 'rgba(245,158,11,0.5)',
   },
   {
     id: 'connect',
     label: 'Connect',
     icon: LinkIcon,
     href: '#connect',
-    preview: 'Let\'s talk — I\'d love to hear from you.',
-    angle: 180,
+    preview: "Let's talk — I'd love to hear from you.",
+    angle: 216,   // lower-left
     color: 'from-rose-500 to-pink-400',
+    shadowColor: 'rgba(244,63,94,0.5)',
   },
 ]
 
-function polarToCartesian(angleDeg: number, radius: number) {
+// angle=0 → TOP because we subtract 90° before converting
+function polarToXY(angleDeg: number, radius: number) {
   const rad = ((angleDeg - 90) * Math.PI) / 180
-  return {
-    x: Math.cos(rad) * radius,
-    y: Math.sin(rad) * radius,
-  }
+  return { x: Math.cos(rad) * radius, y: Math.sin(rad) * radius }
 }
 
 export default function OrbitNav({ visible }: { visible: boolean }) {
   const [hovered, setHovered] = useState<string | null>(null)
-  const radius = typeof window !== 'undefined' && window.innerWidth < 768 ? 110 : 160
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  // Radius clears the card on all screen sizes:
+  // Desktop card: 256×320px → half-diagonal ≈ 205px → radius 240 gives 35px clearance
+  // Mobile card: 208×256px → half-diagonal ≈ 166px → radius 190 gives 24px clearance
+  const radius = isMobile ? 190 : 240
 
   return (
     <AnimatePresence>
       {visible && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <>
           {sections.map((section, i) => {
-            const pos = polarToCartesian(section.angle, radius)
+            const { x, y } = polarToXY(section.angle, radius)
             const Icon = section.icon
             const isHovered = hovered === section.id
 
             return (
               <motion.div
                 key={section.id}
-                className="absolute pointer-events-auto"
-                style={{ left: `calc(50% + ${pos.x}px)`, top: `calc(50% + ${pos.y}px)` }}
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
+                className="absolute"
+                style={{
+                  // Position relative to center of the container (which is the card)
+                  left: `calc(50% + ${x}px)`,
+                  top: `calc(50% + ${y}px)`,
+                  // Tooltips need z-[30], icons at z-[20] (set on parent in page.tsx)
+                  zIndex: isHovered ? 30 : 20,
+                }}
+                initial={{ opacity: 0, scale: 0, x: x * 0.3, y: y * 0.3 }}
+                animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
                 exit={{ opacity: 0, scale: 0 }}
-                transition={{ delay: i * 0.08 + 0.3, type: 'spring', stiffness: 300, damping: 20 }}
+                transition={{
+                  delay: i * 0.07 + 0.5,
+                  type: 'spring',
+                  stiffness: 280,
+                  damping: 22,
+                }}
               >
-                {/* Orbit dot pulse */}
+                {/* Pulse ring */}
                 <motion.div
-                  className="absolute inset-0 rounded-full bg-white/20"
-                  animate={{ scale: [1, 1.8, 1], opacity: [0.4, 0, 0.4] }}
-                  transition={{ duration: 2.5, repeat: Infinity, delay: i * 0.4 }}
+                  className="absolute inset-0 rounded-full opacity-0"
+                  style={{ backgroundColor: section.shadowColor }}
+                  animate={{ scale: [1, 2, 1], opacity: [0.3, 0, 0.3] }}
+                  transition={{ duration: 3, repeat: Infinity, delay: i * 0.5 }}
                 />
 
-                <Link href={section.href}>
+                <Link href={section.href} className="block">
                   <motion.div
-                    className="relative -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
+                    className="-translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer"
                     onMouseEnter={() => setHovered(section.id)}
                     onMouseLeave={() => setHovered(null)}
-                    whileHover={{ scale: 1.15 }}
-                    whileTap={{ scale: 0.95 }}
+                    onTouchStart={() => setHovered(isHovered ? null : section.id)}
+                    whileHover={{ scale: 1.12 }}
+                    whileTap={{ scale: 0.92 }}
                   >
+                    {/* Icon circle */}
                     <motion.div
-                      className={`w-12 h-12 md:w-14 md:h-14 rounded-full bg-gradient-to-br ${section.color} flex items-center justify-center shadow-lg cursor-pointer`}
-                      animate={isHovered ? { boxShadow: '0 0 24px rgba(255,255,255,0.4)' } : {}}
+                      className={`w-11 h-11 md:w-13 md:h-13 rounded-full bg-gradient-to-br ${section.color} flex items-center justify-center`}
+                      animate={{
+                        boxShadow: isHovered
+                          ? `0 0 20px ${section.shadowColor}, 0 0 40px ${section.shadowColor}`
+                          : `0 4px 15px ${section.shadowColor}`,
+                      }}
+                      transition={{ duration: 0.2 }}
                     >
-                      <Icon className="w-5 h-5 md:w-6 md:h-6 text-white" strokeWidth={1.5} />
+                      <Icon className="w-4 h-4 md:w-5 md:h-5 text-white" strokeWidth={1.8} />
                     </motion.div>
 
+                    {/* Label */}
                     <motion.span
-                      className="mt-1.5 text-xs font-medium text-white/80 tracking-wide whitespace-nowrap"
-                      animate={isHovered ? { color: 'rgba(255,255,255,1)' } : {}}
+                      className="mt-1 text-[10px] md:text-xs font-medium tracking-wide whitespace-nowrap"
+                      animate={{ color: isHovered ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.65)' }}
                     >
                       {section.label}
                     </motion.span>
 
-                    {/* Hover preview tooltip */}
+                    {/* Tooltip — z-[30] so it floats above everything */}
                     <AnimatePresence>
                       {isHovered && (
                         <motion.div
-                          className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-44 bg-black/80 backdrop-blur-sm border border-white/10 rounded-xl px-3 py-2 text-center pointer-events-none"
-                          initial={{ opacity: 0, y: 6, scale: 0.95 }}
+                          className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-48 bg-slate-900/95 backdrop-blur-md border border-white/10 rounded-xl px-3 py-2 text-center pointer-events-none shadow-xl"
+                          style={{ zIndex: 30 }}
+                          initial={{ opacity: 0, y: 6, scale: 0.94 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 6, scale: 0.95 }}
-                          transition={{ duration: 0.18 }}
+                          exit={{ opacity: 0, y: 6, scale: 0.94 }}
+                          transition={{ duration: 0.15 }}
                         >
-                          <p className="text-xs text-white/80 leading-snug">{section.preview}</p>
+                          <p className="text-[11px] text-white/75 leading-snug">{section.preview}</p>
+                          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900 border-r border-b border-white/10 rotate-45" />
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -132,7 +171,7 @@ export default function OrbitNav({ visible }: { visible: boolean }) {
               </motion.div>
             )
           })}
-        </div>
+        </>
       )}
     </AnimatePresence>
   )
