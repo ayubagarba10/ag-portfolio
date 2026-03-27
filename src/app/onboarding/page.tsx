@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import { Upload, ArrowRight, Check } from 'lucide-react'
 import { slugify } from '@/lib/utils'
+import { setupOwnerProfile } from './actions'
 
 type Step = 0 | 1 | 2 | 3 | 4
 
@@ -67,18 +68,10 @@ export default function OnboardingPage() {
         profileImageUrl = urlData?.publicUrl || ''
       }
 
-      // Create/update owner profile — use onConflict: user_id for safe upsert
-      const { data: owner, error: profileError } = await supabase
-        .from('owner_profiles')
-        .upsert(
-          { user_id: user.id, name, headline, bio, profile_image_url: profileImageUrl, onboarding_complete: true },
-          { onConflict: 'user_id' }
-        )
-        .select('id')
-        .single()
-
-      if (profileError) throw new Error(`Profile setup failed: ${profileError.message}`)
-      if (!owner) throw new Error('Profile was not created. Check your Supabase schema.')
+      // Create/update owner profile via Server Action (uses service role to bypass RLS)
+      const profileResult = await setupOwnerProfile({ name, headline, bio, profileImageUrl })
+      if (profileResult.error) throw new Error(`Profile setup failed: ${profileResult.error}`)
+      const owner = profileResult.data!
 
       // Create first project
       if (projectTitle.trim()) {

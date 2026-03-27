@@ -52,7 +52,7 @@ const sections = [
     id: 'connect',
     label: 'Connect',
     icon: LinkIcon,
-    href: '#connect',
+    href: '/connect',
     preview: "Let's talk — I'd love to hear from you.",
     angle: 216,   // lower-left
     color: 'from-rose-500 to-pink-400',
