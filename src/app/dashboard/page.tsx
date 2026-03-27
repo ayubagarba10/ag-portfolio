@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import {
-  LogOut, Plus, Trash2, Edit3, ExternalLink, Upload, Sparkles, Copy, Check,
-  BarChart2, Gift, Briefcase
+  LogOut, Plus, Trash2, ExternalLink, Upload, Sparkles, Copy, Check,
+  BarChart2, Gift, Briefcase, Loader2,
 } from 'lucide-react'
 import { slugify } from '@/lib/utils'
 import Image from 'next/image'
+import { ensureOwnerProfile } from './actions'
 
-type Tab = 'profile' | 'projects' | 'experience' | 'stories' | 'analytics'
+type Tab = 'profile' | 'projects' | 'experience' | 'stories' | 'social' | 'analytics'
 
 interface OwnerProfile {
   id: string
@@ -101,9 +102,11 @@ export default function DashboardPage() {
 
   const [tab, setTab] = useState<Tab>('profile')
   const [owner, setOwner] = useState<OwnerProfile | null>(null)
+  const [initializing, setInitializing] = useState(true)
   const [projects, setProjects] = useState<any[]>([])
   const [experiences, setExperiences] = useState<any[]>([])
   const [stories, setStories] = useState<any[]>([])
+  const [socialLinks, setSocialLinks] = useState<any[]>([])
   const [analytics, setAnalytics] = useState<{ page_name: string; count: number }[]>([])
   const [giftCount, setGiftCount] = useState(0)
 
@@ -135,41 +138,76 @@ export default function DashboardPage() {
   const [sTitle, setSTitle] = useState('')
   const [sContent, setSContent] = useState('')
 
+  // New social link form
+  const [showNewSocial, setShowNewSocial] = useState(false)
+  const [slPlatform, setSlPlatform] = useState('')
+  const [slUrl, setSlUrl] = useState('')
+
   useEffect(() => {
     loadAll()
   }, [])
 
   async function loadAll() {
+    setInitializing(true)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) {
+      setInitializing(false)
+      return
+    }
 
-    const { data: p } = await supabase.from('owner_profiles').select('*').eq('user_id', user.id).single()
+    let { data: p } = await supabase
+      .from('owner_profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single()
+
+    // No profile yet — auto-create one via Server Action (service role bypasses RLS)
+    if (!p) {
+      const created = await ensureOwnerProfile()
+      if (created) {
+        const { data: refetched } = await supabase
+          .from('owner_profiles')
+          .select('*')
+          .eq('id', created.id)
+          .single()
+        p = refetched
+      }
+    }
+
     if (p) {
       setOwner(p)
       setName(p.name || '')
       setHeadline(p.headline || '')
       setBio(p.bio || '')
 
-      // Load content
-      const [{ data: proj }, { data: exp }, { data: st }] = await Promise.all([
+      const [{ data: proj }, { data: exp }, { data: st }, { data: sl }] = await Promise.all([
         supabase.from('projects').select('*').eq('owner_id', p.id).order('sort_order'),
         supabase.from('experiences').select('*').eq('owner_id', p.id).order('start_date', { ascending: false }),
         supabase.from('stories').select('*').eq('owner_id', p.id).order('created_at', { ascending: false }),
+        supabase.from('social_links').select('*').eq('owner_id', p.id).order('sort_order'),
       ])
       setProjects(proj || [])
       setExperiences(exp || [])
       setStories(st || [])
+      setSocialLinks(sl || [])
 
-      // Analytics
-      const { data: visits } = await supabase.from('page_visits').select('page_name').eq('owner_id', p.id)
+      const { data: visits } = await supabase
+        .from('page_visits')
+        .select('page_name')
+        .eq('owner_id', p.id)
       if (visits) {
         const counts: Record<string, number> = {}
         visits.forEach(v => { counts[v.page_name] = (counts[v.page_name] || 0) + 1 })
         setAnalytics(Object.entries(counts).map(([page_name, count]) => ({ page_name, count })))
       }
-      const { count } = await supabase.from('gift_messages').select('*', { count: 'exact', head: true }).eq('owner_id', p.id)
+      const { count } = await supabase
+        .from('gift_messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('owner_id', p.id)
       setGiftCount(count || 0)
     }
+
+    setInitializing(false)
   }
 
   function showError(msg: string) {
@@ -179,7 +217,7 @@ export default function DashboardPage() {
 
   async function saveProfile() {
     if (!owner) {
-      showError('Profile not loaded — please run the Supabase schema first.')
+      showError('Profile not loaded — please refresh.')
       return
     }
     setSaving(true)
@@ -311,13 +349,37 @@ export default function DashboardPage() {
     }
   }
 
+  async function addSocialLink() {
+    if (!owner || !slPlatform.trim() || !slUrl.trim()) return
+    try {
+      const { error } = await supabase.from('social_links').insert({
+        owner_id: owner.id,
+        platform_name: slPlatform,
+        url: slUrl,
+      })
+      if (error) throw error
+      setSlPlatform(''); setSlUrl('')
+      setShowNewSocial(false)
+      loadAll()
+    } catch (err: any) {
+      showError(err?.message || 'Failed to add social link.')
+    }
+  }
+
+  async function deleteSocialLink(id: string) {
+    try {
+      const { error } = await supabase.from('social_links').delete().eq('id', id)
+      if (error) throw error
+      setSocialLinks(socialLinks.filter(l => l.id !== id))
+    } catch (err: any) {
+      showError(err?.message || 'Failed to delete social link.')
+    }
+  }
+
   async function signOut() {
     try {
       await supabase.auth.signOut()
-    } catch (_) {
-      // ignore signOut errors — still navigate away
-    }
-    // Full page reload clears all auth state (SSR cookies + client storage)
+    } catch (_) {}
     window.location.href = '/'
   }
 
@@ -326,6 +388,7 @@ export default function DashboardPage() {
     { id: 'projects', label: 'Projects' },
     { id: 'experience', label: 'Experience' },
     { id: 'stories', label: 'Stories' },
+    { id: 'social', label: 'Social Links' },
     { id: 'analytics', label: 'Analytics' },
   ]
 
@@ -338,16 +401,10 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Schema setup banner — shown when profile can't load */}
-      {!owner && (
-        <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-3 text-center text-xs text-amber-300">
-          ⚠ Database tables not found. Please run{' '}
-          <code className="font-mono bg-amber-500/10 px-1 rounded">supabase/schema.sql</code>{' '}
-          in your{' '}
-          <a href="https://supabase.com/dashboard" target="_blank" className="underline hover:text-amber-200">
-            Supabase SQL Editor
-          </a>
-          , then refresh.
+      {/* Loading banner — shown only while initializing (auto-create in progress) */}
+      {initializing && (
+        <div className="bg-white/[0.03] border-b border-white/[0.06] px-6 py-2.5 flex items-center justify-center gap-2 text-xs text-white/30">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Setting up your dashboard…
         </div>
       )}
 
@@ -382,7 +439,7 @@ export default function DashboardPage() {
         </nav>
 
         {/* Mobile tabs */}
-        <div className="md:hidden flex gap-1 px-6 pt-4 overflow-x-auto w-full">
+        <div className="md:hidden flex gap-1 px-4 pt-4 pb-0 overflow-x-auto w-full">
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs transition-colors ${tab === t.id ? 'bg-white/10 text-white' : 'text-white/40'}`}>
@@ -437,7 +494,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <button onClick={saveProfile} disabled={saving}
+                <button onClick={saveProfile} disabled={saving || initializing}
                   className="px-5 py-2.5 bg-white text-slate-950 text-sm font-semibold rounded-xl hover:bg-white/90 transition-colors disabled:opacity-50 flex items-center gap-2">
                   {saved ? <><Check className="w-4 h-4 text-emerald-600" /> Saved</> : saving ? 'Saving…' : 'Save changes'}
                 </button>
@@ -445,7 +502,7 @@ export default function DashboardPage() {
                 {/* Deep links */}
                 <div className="pt-4 border-t border-white/[0.06] space-y-2">
                   <p className="text-xs text-white/30 uppercase tracking-widest mb-3">Shareable links</p>
-                  {['/projects', '/experience', '/about', '/stories'].map(p => (
+                  {['/projects', '/experience', '/about', '/stories', '/connect'].map(p => (
                     <div key={p} className="flex items-center justify-between bg-white/[0.02] border border-white/[0.06] rounded-lg px-3 py-2">
                       <span className="text-xs text-white/40">{p}</span>
                       <CopyLink path={p} />
@@ -602,6 +659,52 @@ export default function DashboardPage() {
                 ))}
                 {stories.length === 0 && !showNewStory && (
                   <p className="text-white/20 text-sm text-center py-10">No stories yet.</p>
+                )}
+              </div>
+            )}
+
+            {/* ── SOCIAL LINKS TAB ────────────────────────────── */}
+            {tab === 'social' && (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">Social Links</h2>
+                    <p className="text-xs text-white/30 mt-0.5">Shown on /connect and /about pages</p>
+                  </div>
+                  <button onClick={() => setShowNewSocial(true)} className="flex items-center gap-1.5 text-sm bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg transition-colors">
+                    <Plus className="w-4 h-4" /> Add
+                  </button>
+                </div>
+
+                {showNewSocial && (
+                  <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5 space-y-3">
+                    <h3 className="text-sm font-medium text-white mb-3">New social link</h3>
+                    <input value={slPlatform} onChange={e => setSlPlatform(e.target.value)} placeholder="Platform (e.g. LinkedIn, GitHub)"
+                      className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30" />
+                    <input value={slUrl} onChange={e => setSlUrl(e.target.value)} placeholder="URL (https://…)"
+                      className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30" />
+                    <div className="flex gap-2 pt-1">
+                      <button onClick={addSocialLink} className="px-4 py-2 bg-white text-slate-950 text-sm font-semibold rounded-lg hover:bg-white/90">Save</button>
+                      <button onClick={() => setShowNewSocial(false)} className="px-4 py-2 text-white/40 text-sm hover:text-white/70">Cancel</button>
+                    </div>
+                  </div>
+                )}
+
+                {socialLinks.map((l) => (
+                  <div key={l.id} className="flex items-center justify-between bg-white/[0.03] border border-white/[0.07] rounded-xl p-4">
+                    <div>
+                      <p className="font-medium text-white text-sm">{l.platform_name}</p>
+                      <a href={l.url} target="_blank" rel="noopener noreferrer" className="text-rose-400 text-xs flex items-center gap-1 mt-0.5 hover:text-rose-300">
+                        <ExternalLink className="w-3 h-3" /> {l.url}
+                      </a>
+                    </div>
+                    <button onClick={() => deleteSocialLink(l.id)} className="text-white/20 hover:text-red-400 transition-colors ml-3">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {socialLinks.length === 0 && !showNewSocial && (
+                  <p className="text-white/20 text-sm text-center py-10">No social links yet. Add your first one!</p>
                 )}
               </div>
             )}
