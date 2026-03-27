@@ -15,6 +15,7 @@ export default function OnboardingPage() {
   const router = useRouter()
   const [step, setStep] = useState<Step>(0)
   const [loading, setLoading] = useState(false)
+  const [setupError, setSetupError] = useState('')
 
   // Step 0: Photo
   const [photoFile, setPhotoFile] = useState<File | null>(null)
@@ -43,49 +44,67 @@ export default function OnboardingPage() {
 
   async function handleFinish() {
     setLoading(true)
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    setSetupError('')
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setSetupError('Not signed in. Please go back to /login.')
+        setLoading(false)
+        return
+      }
 
-    // Upload photo
-    let profileImageUrl = ''
-    if (photoFile) {
-      const ext = photoFile.name.split('.').pop()
-      const path = `profiles/${user.id}/main.${ext}`
-      await supabase.storage.from('portfolio-media').upload(path, photoFile, { upsert: true })
-      const { data: urlData } = supabase.storage.from('portfolio-media').getPublicUrl(path)
-      profileImageUrl = urlData?.publicUrl || ''
-    }
+      // Upload photo
+      let profileImageUrl = ''
+      if (photoFile) {
+        const ext = photoFile.name.split('.').pop()
+        const path = `profiles/${user.id}/main.${ext}`
+        const { error: uploadError } = await supabase.storage
+          .from('portfolio-media')
+          .upload(path, photoFile, { upsert: true })
+        if (uploadError) throw new Error(`Photo upload failed: ${uploadError.message}`)
+        const { data: urlData } = supabase.storage.from('portfolio-media').getPublicUrl(path)
+        profileImageUrl = urlData?.publicUrl || ''
+      }
 
-    // Create owner profile
-    const { data: owner, error: profileError } = await supabase
-      .from('owner_profiles')
-      .upsert({ user_id: user.id, name, headline, bio, profile_image_url: profileImageUrl, onboarding_complete: true })
-      .select('id')
-      .single()
+      // Create/update owner profile — use onConflict: user_id for safe upsert
+      const { data: owner, error: profileError } = await supabase
+        .from('owner_profiles')
+        .upsert(
+          { user_id: user.id, name, headline, bio, profile_image_url: profileImageUrl, onboarding_complete: true },
+          { onConflict: 'user_id' }
+        )
+        .select('id')
+        .single()
 
-    if (profileError || !owner) {
+      if (profileError) throw new Error(`Profile setup failed: ${profileError.message}`)
+      if (!owner) throw new Error('Profile was not created. Check your Supabase schema.')
+
+      // Create first project
+      if (projectTitle.trim()) {
+        const { error: projError } = await supabase.from('projects').insert({
+          owner_id: owner.id,
+          title: projectTitle,
+          description: projectDesc,
+          external_link: projectLink,
+          slug: slugify(projectTitle) || `project-${Date.now()}`,
+        })
+        if (projError) throw new Error(`Project setup failed: ${projError.message}`)
+      }
+
+      // Create social link
+      if (platform.trim() && socialUrl.trim()) {
+        const { error: linkError } = await supabase
+          .from('social_links')
+          .insert({ owner_id: owner.id, platform_name: platform, url: socialUrl })
+        if (linkError) throw new Error(`Social link setup failed: ${linkError.message}`)
+      }
+
+      router.push('/dashboard')
+    } catch (err: any) {
+      setSetupError(err?.message || 'Setup failed. Please try again.')
       setLoading(false)
-      return
     }
-
-    // Create first project
-    if (projectTitle) {
-      await supabase.from('projects').insert({
-        owner_id: owner.id,
-        title: projectTitle,
-        description: projectDesc,
-        external_link: projectLink,
-        slug: slugify(projectTitle) || `project-${Date.now()}`,
-      })
-    }
-
-    // Create social link
-    if (platform && socialUrl) {
-      await supabase.from('social_links').insert({ owner_id: owner.id, platform_name: platform, url: socialUrl })
-    }
-
-    router.push('/dashboard')
   }
 
   const canAdvance = () => {
@@ -175,6 +194,18 @@ export default function OnboardingPage() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Error message */}
+        {setupError && (
+          <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400 leading-snug">
+            {setupError}
+            {setupError.includes('schema') && (
+              <a href="https://supabase.com/dashboard" target="_blank" className="block mt-1 underline text-xs text-red-300 hover:text-red-200">
+                Open Supabase Dashboard →
+              </a>
+            )}
+          </div>
+        )}
 
         {/* Nav */}
         <div className="flex gap-3 mt-8">

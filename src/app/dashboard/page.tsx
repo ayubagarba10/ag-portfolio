@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -98,7 +97,6 @@ function CopyLink({ path }: { path: string }) {
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
-  const router = useRouter()
   const supabase = createClient()
 
   const [tab, setTab] = useState<Tab>('profile')
@@ -115,6 +113,7 @@ export default function DashboardPage() {
   const [bio, setBio] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
 
   // New project form
   const [showNewProject, setShowNewProject] = useState(false)
@@ -173,91 +172,153 @@ export default function DashboardPage() {
     }
   }
 
+  function showError(msg: string) {
+    setErrorMsg(msg)
+    setTimeout(() => setErrorMsg(''), 4000)
+  }
+
   async function saveProfile() {
-    if (!owner) return
+    if (!owner) {
+      showError('Profile not loaded — please run the Supabase schema first.')
+      return
+    }
     setSaving(true)
-    await supabase.from('owner_profiles').update({ name, headline, bio, last_updated_at: new Date().toISOString() }).eq('id', owner.id)
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    try {
+      const { error } = await supabase
+        .from('owner_profiles')
+        .update({ name, headline, bio, last_updated_at: new Date().toISOString() })
+        .eq('id', owner.id)
+      if (error) throw error
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (err: any) {
+      showError(err?.message || 'Failed to save profile.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function uploadPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file || !owner) return
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const ext = file.name.split('.').pop()
-    const path = `profiles/${user.id}/main.${ext}`
-    await supabase.storage.from('portfolio-media').upload(path, file, { upsert: true })
-    const { data } = supabase.storage.from('portfolio-media').getPublicUrl(path)
-    if (data?.publicUrl) {
-      await supabase.from('owner_profiles').update({ profile_image_url: data.publicUrl }).eq('id', owner.id)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const ext = file.name.split('.').pop()
+      const path = `profiles/${user.id}/main.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('portfolio-media')
+        .upload(path, file, { upsert: true })
+      if (uploadError) throw uploadError
+      const { data } = supabase.storage.from('portfolio-media').getPublicUrl(path)
+      if (!data?.publicUrl) throw new Error('Could not get public URL')
+      const { error: updateError } = await supabase
+        .from('owner_profiles')
+        .update({ profile_image_url: data.publicUrl })
+        .eq('id', owner.id)
+      if (updateError) throw updateError
       setOwner({ ...owner, profile_image_url: data.publicUrl })
+    } catch (err: any) {
+      showError(err?.message || 'Photo upload failed.')
     }
   }
 
   async function addProject() {
     if (!owner || !pTitle.trim()) return
-    await supabase.from('projects').insert({
-      owner_id: owner.id,
-      title: pTitle,
-      description: pDesc,
-      external_link: pLink,
-      slug: slugify(pTitle) || `project-${Date.now()}`,
-    })
-    setPTitle(''); setPDesc(''); setPLink('')
-    setShowNewProject(false)
-    loadAll()
+    try {
+      const { error } = await supabase.from('projects').insert({
+        owner_id: owner.id,
+        title: pTitle,
+        description: pDesc,
+        external_link: pLink,
+        slug: slugify(pTitle) || `project-${Date.now()}`,
+      })
+      if (error) throw error
+      setPTitle(''); setPDesc(''); setPLink('')
+      setShowNewProject(false)
+      loadAll()
+    } catch (err: any) {
+      showError(err?.message || 'Failed to add project.')
+    }
   }
 
   async function deleteProject(id: string) {
-    await supabase.from('projects').delete().eq('id', id)
-    setProjects(projects.filter(p => p.id !== id))
+    try {
+      const { error } = await supabase.from('projects').delete().eq('id', id)
+      if (error) throw error
+      setProjects(projects.filter(p => p.id !== id))
+    } catch (err: any) {
+      showError(err?.message || 'Failed to delete project.')
+    }
   }
 
   async function addExperience() {
     if (!owner || !eRole.trim() || !eCompany.trim()) return
-    await supabase.from('experiences').insert({
-      owner_id: owner.id,
-      role: eRole,
-      company: eCompany,
-      description: eDesc,
-      start_date: eStart || null,
-      end_date: eCurrent ? null : (eEnd || null),
-      is_current: eCurrent,
-    })
-    setERole(''); setECompany(''); setEDesc(''); setEStart(''); setEEnd(''); setECurrent(false)
-    setShowNewExp(false)
-    loadAll()
+    try {
+      const { error } = await supabase.from('experiences').insert({
+        owner_id: owner.id,
+        role: eRole,
+        company: eCompany,
+        description: eDesc,
+        start_date: eStart || null,
+        end_date: eCurrent ? null : (eEnd || null),
+        is_current: eCurrent,
+      })
+      if (error) throw error
+      setERole(''); setECompany(''); setEDesc(''); setEStart(''); setEEnd(''); setECurrent(false)
+      setShowNewExp(false)
+      loadAll()
+    } catch (err: any) {
+      showError(err?.message || 'Failed to add experience.')
+    }
   }
 
   async function deleteExperience(id: string) {
-    await supabase.from('experiences').delete().eq('id', id)
-    setExperiences(experiences.filter(e => e.id !== id))
+    try {
+      const { error } = await supabase.from('experiences').delete().eq('id', id)
+      if (error) throw error
+      setExperiences(experiences.filter(e => e.id !== id))
+    } catch (err: any) {
+      showError(err?.message || 'Failed to delete experience.')
+    }
   }
 
   async function addStory() {
     if (!owner || !sTitle.trim()) return
-    await supabase.from('stories').insert({
-      owner_id: owner.id,
-      title: sTitle,
-      content: sContent,
-      slug: slugify(sTitle) || `story-${Date.now()}`,
-    })
-    setSTitle(''); setSContent('')
-    setShowNewStory(false)
-    loadAll()
+    try {
+      const { error } = await supabase.from('stories').insert({
+        owner_id: owner.id,
+        title: sTitle,
+        content: sContent,
+        slug: slugify(sTitle) || `story-${Date.now()}`,
+      })
+      if (error) throw error
+      setSTitle(''); setSContent('')
+      setShowNewStory(false)
+      loadAll()
+    } catch (err: any) {
+      showError(err?.message || 'Failed to add story.')
+    }
   }
 
   async function deleteStory(id: string) {
-    await supabase.from('stories').delete().eq('id', id)
-    setStories(stories.filter(s => s.id !== id))
+    try {
+      const { error } = await supabase.from('stories').delete().eq('id', id)
+      if (error) throw error
+      setStories(stories.filter(s => s.id !== id))
+    } catch (err: any) {
+      showError(err?.message || 'Failed to delete story.')
+    }
   }
 
   async function signOut() {
-    await supabase.auth.signOut()
-    router.push('/')
+    try {
+      await supabase.auth.signOut()
+    } catch (_) {
+      // ignore signOut errors — still navigate away
+    }
+    // Full page reload clears all auth state (SSR cookies + client storage)
+    window.location.href = '/'
   }
 
   const tabs: { id: Tab; label: string }[] = [
@@ -270,6 +331,26 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-950">
+      {/* Error toast */}
+      {errorMsg && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500/90 text-white text-sm px-4 py-2.5 rounded-xl shadow-xl backdrop-blur-sm max-w-sm text-center">
+          {errorMsg}
+        </div>
+      )}
+
+      {/* Schema setup banner — shown when profile can't load */}
+      {!owner && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-3 text-center text-xs text-amber-300">
+          ⚠ Database tables not found. Please run{' '}
+          <code className="font-mono bg-amber-500/10 px-1 rounded">supabase/schema.sql</code>{' '}
+          in your{' '}
+          <a href="https://supabase.com/dashboard" target="_blank" className="underline hover:text-amber-200">
+            Supabase SQL Editor
+          </a>
+          , then refresh.
+        </div>
+      )}
+
       {/* Header */}
       <header className="border-b border-white/[0.06] px-6 md:px-10 py-4 flex items-center justify-between">
         <div>

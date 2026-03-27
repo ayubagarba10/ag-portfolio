@@ -52,11 +52,11 @@ export default function CinematicHero({ profileImageUrl, name, headline, visible
           animate={{ opacity: visible ? 1 : 0, y: visible ? 0 : 10 }}
           transition={{ delay: 1, duration: 0.6 }}
         >
-          <h1 className="text-white font-semibold text-lg md:text-xl leading-tight tracking-tight">
+          <h1 className="text-white font-semibold text-lg md:text-xl leading-tight tracking-tight text-center">
             {name || 'Welcome'}
           </h1>
           {headline && (
-            <p className="text-white/55 text-xs md:text-sm mt-0.5 leading-snug font-light">
+            <p className="text-white/55 text-xs md:text-sm mt-0.5 leading-snug font-light text-center">
               {headline}
             </p>
           )}

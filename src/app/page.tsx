@@ -61,19 +61,20 @@ export default function HomePage() {
         {/* The orbit container — sized to the photo card.
             Orbit icons are positioned relative to THIS container's center.
             overflow-visible lets icons extend beyond the card bounds. */}
-        <div className="relative w-[208px] h-[256px] md:w-[256px] md:h-[320px] overflow-visible">
-          {/* z-20: Orbit icons (below the card so card is in front) */}
-          <div className="absolute inset-0 z-[20]">
-            <OrbitNav visible={welcomed} />
-          </div>
-          {/* z-[25]: Photo card (on top of orbit lines, below tooltips) */}
-          <div className="relative z-[25] w-full h-full">
+        {/* Card grows across 3 breakpoints. Orbit radius matches each. */}
+        <div className="relative w-[160px] h-[200px] sm:w-[208px] sm:h-[256px] md:w-[256px] md:h-[320px] overflow-visible">
+          {/* z-[20]: Photo card */}
+          <div className="relative z-[20] w-full h-full">
             <CinematicHero
               profileImageUrl={profile?.profile_image_url || ''}
               name={profile?.name || ''}
               headline={profile?.headline || ''}
               visible={welcomed}
             />
+          </div>
+          {/* z-[30]: Orbit icons — must be ABOVE card so tooltips aren't clipped */}
+          <div className="absolute inset-0 z-[30]">
+            <OrbitNav visible={welcomed} />
           </div>
         </div>
       </div>

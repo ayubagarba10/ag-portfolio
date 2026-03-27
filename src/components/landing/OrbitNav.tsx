@@ -68,19 +68,25 @@ function polarToXY(angleDeg: number, radius: number) {
 
 export default function OrbitNav({ visible }: { visible: boolean }) {
   const [hovered, setHovered] = useState<string | null>(null)
-  const [isMobile, setIsMobile] = useState(false)
+  const [screenSize, setScreenSize] = useState<'xs' | 'sm' | 'lg'>('lg')
 
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768)
+    const check = () => {
+      const w = window.innerWidth
+      if (w < 640) setScreenSize('xs')       // < 640px: 160×200 card
+      else if (w < 768) setScreenSize('sm')  // 640-767px: 208×256 card
+      else setScreenSize('lg')               // ≥ 768px: 256×320 card
+    }
     check()
     window.addEventListener('resize', check)
     return () => window.removeEventListener('resize', check)
   }, [])
 
-  // Radius clears the card on all screen sizes:
-  // Desktop card: 256×320px → half-diagonal ≈ 205px → radius 240 gives 35px clearance
-  // Mobile card: 208×256px → half-diagonal ≈ 166px → radius 190 gives 24px clearance
-  const radius = isMobile ? 190 : 240
+  // Radius clears each card size:
+  // xs  card 160×200 → half-diagonal ≈ 128px → radius 150 gives ~22px clearance, fits 320px screen
+  // sm  card 208×256 → half-diagonal ≈ 166px → radius 190 gives ~24px clearance
+  // lg  card 256×320 → half-diagonal ≈ 205px → radius 240 gives ~35px clearance
+  const radius = screenSize === 'xs' ? 150 : screenSize === 'sm' ? 190 : 240
 
   return (
     <AnimatePresence>
@@ -150,11 +156,20 @@ export default function OrbitNav({ visible }: { visible: boolean }) {
                       {section.label}
                     </motion.span>
 
-                    {/* Tooltip — z-[30] so it floats above everything */}
+                    {/* Tooltip — aligned to avoid viewport edges on mobile */}
                     <AnimatePresence>
                       {isHovered && (
                         <motion.div
-                          className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 w-48 bg-slate-900/95 backdrop-blur-md border border-white/10 rounded-xl px-3 py-2 text-center pointer-events-none shadow-xl"
+                          className={[
+                            'absolute bottom-full mb-3 w-36 md:w-44',
+                            'bg-slate-900/95 backdrop-blur-md border border-white/10 rounded-xl px-3 py-2 pointer-events-none shadow-xl',
+                            // Icons with large positive x (right side) → right-align tooltip so it doesn't overflow right
+                            // Icons with large negative x (left side) → left-align tooltip so it doesn't overflow left
+                            // Others → center
+                            x > 50 ? 'right-1/2 translate-x-1/2 text-right'
+                            : x < -50 ? 'left-1/2 -translate-x-1/2 text-left'
+                            : 'left-1/2 -translate-x-1/2 text-center',
+                          ].join(' ')}
                           style={{ zIndex: 30 }}
                           initial={{ opacity: 0, y: 6, scale: 0.94 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -162,7 +177,10 @@ export default function OrbitNav({ visible }: { visible: boolean }) {
                           transition={{ duration: 0.15 }}
                         >
                           <p className="text-[11px] text-white/75 leading-snug">{section.preview}</p>
-                          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900 border-r border-b border-white/10 rotate-45" />
+                          <div className={[
+                            'absolute -bottom-1.5 w-3 h-3 bg-slate-900 border-r border-b border-white/10 rotate-45',
+                            x > 50 ? 'right-4' : x < -50 ? 'left-4' : 'left-1/2 -translate-x-1/2',
+                          ].join(' ')} />
                         </motion.div>
                       )}
                     </AnimatePresence>
