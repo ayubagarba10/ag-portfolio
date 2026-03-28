@@ -1,17 +1,18 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import {
   LogOut, Plus, Trash2, ExternalLink, Upload, Sparkles, Copy, Check,
-  BarChart2, Gift, Briefcase, Loader2,
+  BarChart2, Gift, Briefcase, Loader2, Pencil,
 } from 'lucide-react'
 import { slugify } from '@/lib/utils'
 import Image from 'next/image'
 import { ensureOwnerProfile } from './actions'
 
-type Tab = 'profile' | 'projects' | 'experience' | 'stories' | 'social' | 'analytics'
+type Tab = 'profile' | 'projects' | 'experience' | 'stories' | 'social' | 'media' | 'analytics'
 
 interface OwnerProfile {
   id: string
@@ -19,6 +20,7 @@ interface OwnerProfile {
   headline: string
   bio: string
   profile_image_url: string
+  onboarding_complete: boolean
 }
 
 // ─── AI Suggest Button ────────────────────────────────────────────────────────
@@ -99,6 +101,7 @@ function CopyLink({ path }: { path: string }) {
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const supabase = createClient()
+  const router = useRouter()
 
   const [tab, setTab] = useState<Tab>('profile')
   const [owner, setOwner] = useState<OwnerProfile | null>(null)
@@ -143,6 +146,34 @@ export default function DashboardPage() {
   const [slPlatform, setSlPlatform] = useState('')
   const [slUrl, setSlUrl] = useState('')
 
+  // Photo upload loading
+  const [photoUploading, setPhotoUploading] = useState(false)
+
+  // Edit project state
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null)
+  const [epTitle, setEpTitle] = useState('')
+  const [epDesc, setEpDesc] = useState('')
+  const [epLink, setEpLink] = useState('')
+
+  // Edit experience state
+  const [editingExpId, setEditingExpId] = useState<string | null>(null)
+  const [eeRole, setEeRole] = useState('')
+  const [eeCompany, setEeCompany] = useState('')
+  const [eeDesc, setEeDesc] = useState('')
+  const [eeStart, setEeStart] = useState('')
+  const [eeEnd, setEeEnd] = useState('')
+  const [eeCurrent, setEeCurrent] = useState(false)
+
+  // Edit story state
+  const [editingStoryId, setEditingStoryId] = useState<string | null>(null)
+  const [esTitle, setEsTitle] = useState('')
+  const [esContent, setEsContent] = useState('')
+
+  // Media state
+  const [media, setMedia] = useState<any[]>([])
+  const [mediaUploading, setMediaUploading] = useState(false)
+  const [mediaAltText, setMediaAltText] = useState('')
+
   useEffect(() => {
     loadAll()
   }, [])
@@ -175,21 +206,28 @@ export default function DashboardPage() {
     }
 
     if (p) {
+      if (!p.onboarding_complete) {
+        router.push('/onboarding')
+        return
+      }
+
       setOwner(p)
       setName(p.name || '')
       setHeadline(p.headline || '')
       setBio(p.bio || '')
 
-      const [{ data: proj }, { data: exp }, { data: st }, { data: sl }] = await Promise.all([
+      const [{ data: proj }, { data: exp }, { data: st }, { data: sl }, { data: med }] = await Promise.all([
         supabase.from('projects').select('*').eq('owner_id', p.id).order('sort_order'),
         supabase.from('experiences').select('*').eq('owner_id', p.id).order('start_date', { ascending: false }),
         supabase.from('stories').select('*').eq('owner_id', p.id).order('created_at', { ascending: false }),
         supabase.from('social_links').select('*').eq('owner_id', p.id).order('sort_order'),
+        supabase.from('media').select('*').eq('owner_id', p.id).order('uploaded_at', { ascending: false }),
       ])
       setProjects(proj || [])
       setExperiences(exp || [])
       setStories(st || [])
       setSocialLinks(sl || [])
+      setMedia(med || [])
 
       const { data: visits } = await supabase
         .from('page_visits')
@@ -239,6 +277,7 @@ export default function DashboardPage() {
   async function uploadPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file || !owner) return
+    setPhotoUploading(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
@@ -258,11 +297,14 @@ export default function DashboardPage() {
       setOwner({ ...owner, profile_image_url: data.publicUrl })
     } catch (err: any) {
       showError(err?.message || 'Photo upload failed.')
+    } finally {
+      setPhotoUploading(false)
     }
   }
 
   async function addProject() {
-    if (!owner || !pTitle.trim()) return
+    if (!owner) { showError('Profile not loaded — please refresh.'); return }
+    if (!pTitle.trim()) return
     try {
       const { error } = await supabase.from('projects').insert({
         owner_id: owner.id,
@@ -290,8 +332,41 @@ export default function DashboardPage() {
     }
   }
 
+  function startEditProject(p: any) {
+    setEditingProjectId(p.id)
+    setEpTitle(p.title)
+    setEpDesc(p.description || '')
+    setEpLink(p.external_link || '')
+    setShowNewProject(false)
+  }
+
+  function cancelEditProject() {
+    setEditingProjectId(null)
+    setEpTitle(''); setEpDesc(''); setEpLink('')
+  }
+
+  async function updateProject() {
+    if (!owner || !editingProjectId || !epTitle.trim()) return
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ title: epTitle, description: epDesc, external_link: epLink, updated_at: new Date().toISOString() })
+        .eq('id', editingProjectId)
+      if (error) throw error
+      setProjects(projects.map(p =>
+        p.id === editingProjectId
+          ? { ...p, title: epTitle, description: epDesc, external_link: epLink }
+          : p
+      ))
+      cancelEditProject()
+    } catch (err: any) {
+      showError(err?.message || 'Failed to update project.')
+    }
+  }
+
   async function addExperience() {
-    if (!owner || !eRole.trim() || !eCompany.trim()) return
+    if (!owner) { showError('Profile not loaded — please refresh.'); return }
+    if (!eRole.trim() || !eCompany.trim()) return
     try {
       const { error } = await supabase.from('experiences').insert({
         owner_id: owner.id,
@@ -321,8 +396,52 @@ export default function DashboardPage() {
     }
   }
 
+  function startEditExperience(e: any) {
+    setEditingExpId(e.id)
+    setEeRole(e.role)
+    setEeCompany(e.company)
+    setEeDesc(e.description || '')
+    setEeStart(e.start_date || '')
+    setEeEnd(e.end_date || '')
+    setEeCurrent(e.is_current || false)
+    setShowNewExp(false)
+  }
+
+  function cancelEditExperience() {
+    setEditingExpId(null)
+    setEeRole(''); setEeCompany(''); setEeDesc('')
+    setEeStart(''); setEeEnd(''); setEeCurrent(false)
+  }
+
+  async function updateExperience() {
+    if (!owner || !editingExpId || !eeRole.trim() || !eeCompany.trim()) return
+    try {
+      const { error } = await supabase
+        .from('experiences')
+        .update({
+          role: eeRole,
+          company: eeCompany,
+          description: eeDesc,
+          start_date: eeStart || null,
+          end_date: eeCurrent ? null : (eeEnd || null),
+          is_current: eeCurrent,
+        })
+        .eq('id', editingExpId)
+      if (error) throw error
+      setExperiences(experiences.map(e =>
+        e.id === editingExpId
+          ? { ...e, role: eeRole, company: eeCompany, description: eeDesc, start_date: eeStart, end_date: eeCurrent ? null : eeEnd, is_current: eeCurrent }
+          : e
+      ))
+      cancelEditExperience()
+    } catch (err: any) {
+      showError(err?.message || 'Failed to update experience.')
+    }
+  }
+
   async function addStory() {
-    if (!owner || !sTitle.trim()) return
+    if (!owner) { showError('Profile not loaded — please refresh.'); return }
+    if (!sTitle.trim()) return
     try {
       const { error } = await supabase.from('stories').insert({
         owner_id: owner.id,
@@ -349,8 +468,38 @@ export default function DashboardPage() {
     }
   }
 
+  function startEditStory(s: any) {
+    setEditingStoryId(s.id)
+    setEsTitle(s.title)
+    setEsContent(s.content || '')
+    setShowNewStory(false)
+  }
+
+  function cancelEditStory() {
+    setEditingStoryId(null)
+    setEsTitle(''); setEsContent('')
+  }
+
+  async function updateStory() {
+    if (!owner || !editingStoryId || !esTitle.trim()) return
+    try {
+      const { error } = await supabase
+        .from('stories')
+        .update({ title: esTitle, content: esContent, updated_at: new Date().toISOString() })
+        .eq('id', editingStoryId)
+      if (error) throw error
+      setStories(stories.map(s =>
+        s.id === editingStoryId ? { ...s, title: esTitle, content: esContent } : s
+      ))
+      cancelEditStory()
+    } catch (err: any) {
+      showError(err?.message || 'Failed to update story.')
+    }
+  }
+
   async function addSocialLink() {
-    if (!owner || !slPlatform.trim() || !slUrl.trim()) return
+    if (!owner) { showError('Profile not loaded — please refresh.'); return }
+    if (!slPlatform.trim() || !slUrl.trim()) return
     try {
       const { error } = await supabase.from('social_links').insert({
         owner_id: owner.id,
@@ -376,6 +525,52 @@ export default function DashboardPage() {
     }
   }
 
+  async function uploadMedia(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !owner) return
+    setMediaUploading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const ext = file.name.split('.').pop()
+      const mediaType = file.type.startsWith('video/') ? 'video' : 'image'
+      const path = `media/${owner.id}/${Date.now()}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('portfolio-media')
+        .upload(path, file, { upsert: false })
+      if (uploadError) throw uploadError
+      const { data: urlData } = supabase.storage.from('portfolio-media').getPublicUrl(path)
+      if (!urlData?.publicUrl) throw new Error('Could not get public URL')
+      const { data: inserted, error: dbError } = await supabase
+        .from('media')
+        .insert({ owner_id: owner.id, url: urlData.publicUrl, media_type: mediaType, alt_text: mediaAltText.trim() })
+        .select()
+        .single()
+      if (dbError) throw dbError
+      setMedia([inserted, ...media])
+      setMediaAltText('')
+      e.target.value = ''
+    } catch (err: any) {
+      showError(err?.message || 'Media upload failed.')
+    } finally {
+      setMediaUploading(false)
+    }
+  }
+
+  async function deleteMedia(id: string, url: string) {
+    try {
+      const path = url.split('/storage/v1/object/public/portfolio-media/')[1]
+      if (path) {
+        await supabase.storage.from('portfolio-media').remove([path])
+      }
+      const { error } = await supabase.from('media').delete().eq('id', id)
+      if (error) throw error
+      setMedia(media.filter(m => m.id !== id))
+    } catch (err: any) {
+      showError(err?.message || 'Failed to delete media.')
+    }
+  }
+
   async function signOut() {
     try {
       await supabase.auth.signOut()
@@ -389,6 +584,7 @@ export default function DashboardPage() {
     { id: 'experience', label: 'Experience' },
     { id: 'stories', label: 'Stories' },
     { id: 'social', label: 'Social Links' },
+    { id: 'media', label: 'Media' },
     { id: 'analytics', label: 'Analytics' },
   ]
 
@@ -466,11 +662,13 @@ export default function DashboardPage() {
                       <div className="w-full h-full flex items-center justify-center text-white/20 text-xl">?</div>
                     )}
                   </div>
-                  <label className="cursor-pointer">
+                  <label className={`cursor-pointer ${photoUploading ? 'pointer-events-none' : ''}`}>
                     <span className="flex items-center gap-1.5 text-sm text-white/50 hover:text-white/80 transition-colors">
-                      <Upload className="w-4 h-4" /> Replace photo
+                      {photoUploading
+                        ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading…</>
+                        : <><Upload className="w-4 h-4" /> Replace photo</>}
                     </span>
-                    <input type="file" accept="image/*" className="hidden" onChange={uploadPhoto} />
+                    <input type="file" accept="image/*" className="hidden" onChange={uploadPhoto} disabled={photoUploading} />
                   </label>
                 </div>
 
@@ -540,19 +738,43 @@ export default function DashboardPage() {
                 )}
 
                 {projects.map((p) => (
-                  <div key={p.id} className="flex items-start justify-between bg-white/[0.03] border border-white/[0.07] rounded-xl p-4">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-white text-sm">{p.title}</p>
-                      {p.description && <p className="text-white/40 text-xs mt-0.5 line-clamp-2">{p.description}</p>}
-                      {p.external_link && (
-                        <a href={p.external_link} target="_blank" className="text-blue-400 text-xs flex items-center gap-1 mt-1">
-                          <ExternalLink className="w-3 h-3" /> {p.external_link}
-                        </a>
-                      )}
-                    </div>
-                    <button onClick={() => deleteProject(p.id)} className="text-white/20 hover:text-red-400 transition-colors ml-3 flex-shrink-0">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div key={p.id}>
+                    {editingProjectId === p.id ? (
+                      <div className="bg-white/[0.03] border border-violet-500/30 rounded-2xl p-5 space-y-3">
+                        <h3 className="text-sm font-medium text-white mb-3">Edit project</h3>
+                        <input value={epTitle} onChange={e => setEpTitle(e.target.value)} placeholder="Title *"
+                          className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30" />
+                        <textarea value={epDesc} onChange={e => setEpDesc(e.target.value)} placeholder="Description" rows={3}
+                          className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 resize-none" />
+                        <AISuggestButton text={epDesc} context="project description for a portfolio website" onAccept={setEpDesc} />
+                        <input value={epLink} onChange={e => setEpLink(e.target.value)} placeholder="External link (optional)"
+                          className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30" />
+                        <div className="flex gap-2 pt-1">
+                          <button onClick={updateProject} className="px-4 py-2 bg-white text-slate-950 text-sm font-semibold rounded-lg hover:bg-white/90">Save</button>
+                          <button onClick={cancelEditProject} className="px-4 py-2 text-white/40 text-sm hover:text-white/70">Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start justify-between bg-white/[0.03] border border-white/[0.07] rounded-xl p-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-white text-sm">{p.title}</p>
+                          {p.description && <p className="text-white/40 text-xs mt-0.5 line-clamp-2">{p.description}</p>}
+                          {p.external_link && (
+                            <a href={p.external_link} target="_blank" className="text-blue-400 text-xs flex items-center gap-1 mt-1">
+                              <ExternalLink className="w-3 h-3" /> {p.external_link}
+                            </a>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+                          <button onClick={() => startEditProject(p)} className="text-white/20 hover:text-violet-400 transition-colors">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => deleteProject(p.id)} className="text-white/20 hover:text-red-400 transition-colors">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
 
@@ -604,15 +826,53 @@ export default function DashboardPage() {
                 )}
 
                 {experiences.map((e) => (
-                  <div key={e.id} className="flex items-start justify-between bg-white/[0.03] border border-white/[0.07] rounded-xl p-4">
-                    <div>
-                      <p className="font-medium text-white text-sm">{e.role}</p>
-                      <p className="text-violet-400 text-xs">{e.company}</p>
-                      {e.description && <p className="text-white/40 text-xs mt-1 line-clamp-2">{e.description}</p>}
-                    </div>
-                    <button onClick={() => deleteExperience(e.id)} className="text-white/20 hover:text-red-400 transition-colors ml-3">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div key={e.id}>
+                    {editingExpId === e.id ? (
+                      <div className="bg-white/[0.03] border border-violet-500/30 rounded-2xl p-5 space-y-3">
+                        <h3 className="text-sm font-medium text-white mb-3">Edit experience</h3>
+                        <div className="grid grid-cols-2 gap-3">
+                          <input value={eeRole} onChange={ev => setEeRole(ev.target.value)} placeholder="Role *"
+                            className="bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30" />
+                          <input value={eeCompany} onChange={ev => setEeCompany(ev.target.value)} placeholder="Company *"
+                            className="bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30" />
+                        </div>
+                        <textarea value={eeDesc} onChange={ev => setEeDesc(ev.target.value)} placeholder="Description" rows={2}
+                          className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 resize-none" />
+                        <AISuggestButton text={eeDesc} context="professional role description for a portfolio/resume" onAccept={setEeDesc} />
+                        <div className="grid grid-cols-2 gap-3">
+                          <input type="date" value={eeStart} onChange={ev => setEeStart(ev.target.value)}
+                            className="bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white/60 focus:outline-none focus:border-white/30" />
+                          {!eeCurrent && (
+                            <input type="date" value={eeEnd} onChange={ev => setEeEnd(ev.target.value)}
+                              className="bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white/60 focus:outline-none focus:border-white/30" />
+                          )}
+                        </div>
+                        <label className="flex items-center gap-2 text-sm text-white/50 cursor-pointer">
+                          <input type="checkbox" checked={eeCurrent} onChange={ev => setEeCurrent(ev.target.checked)} className="accent-violet-500" />
+                          Current role
+                        </label>
+                        <div className="flex gap-2 pt-1">
+                          <button onClick={updateExperience} className="px-4 py-2 bg-white text-slate-950 text-sm font-semibold rounded-lg hover:bg-white/90">Save</button>
+                          <button onClick={cancelEditExperience} className="px-4 py-2 text-white/40 text-sm hover:text-white/70">Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start justify-between bg-white/[0.03] border border-white/[0.07] rounded-xl p-4">
+                        <div>
+                          <p className="font-medium text-white text-sm">{e.role}</p>
+                          <p className="text-violet-400 text-xs">{e.company}</p>
+                          {e.description && <p className="text-white/40 text-xs mt-1 line-clamp-2">{e.description}</p>}
+                        </div>
+                        <div className="flex items-center gap-2 ml-3">
+                          <button onClick={() => startEditExperience(e)} className="text-white/20 hover:text-violet-400 transition-colors">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => deleteExperience(e.id)} className="text-white/20 hover:text-red-400 transition-colors">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
                 {experiences.length === 0 && !showNewExp && (
@@ -647,14 +907,36 @@ export default function DashboardPage() {
                 )}
 
                 {stories.map((s) => (
-                  <div key={s.id} className="flex items-start justify-between bg-white/[0.03] border border-white/[0.07] rounded-xl p-4">
-                    <div>
-                      <p className="font-medium text-white text-sm">{s.title}</p>
-                      {s.content && <p className="text-white/40 text-xs mt-1 line-clamp-2">{s.content}</p>}
-                    </div>
-                    <button onClick={() => deleteStory(s.id)} className="text-white/20 hover:text-red-400 transition-colors ml-3">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div key={s.id}>
+                    {editingStoryId === s.id ? (
+                      <div className="bg-white/[0.03] border border-violet-500/30 rounded-2xl p-5 space-y-3">
+                        <h3 className="text-sm font-medium text-white mb-3">Edit story</h3>
+                        <input value={esTitle} onChange={e => setEsTitle(e.target.value)} placeholder="Title *"
+                          className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30" />
+                        <textarea value={esContent} onChange={e => setEsContent(e.target.value)} placeholder="Tell your story…" rows={5}
+                          className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 resize-none" />
+                        <AISuggestButton text={esContent} context="personal story or social life post for a portfolio website" onAccept={setEsContent} />
+                        <div className="flex gap-2 pt-1">
+                          <button onClick={updateStory} className="px-4 py-2 bg-white text-slate-950 text-sm font-semibold rounded-lg hover:bg-white/90">Save</button>
+                          <button onClick={cancelEditStory} className="px-4 py-2 text-white/40 text-sm hover:text-white/70">Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start justify-between bg-white/[0.03] border border-white/[0.07] rounded-xl p-4">
+                        <div>
+                          <p className="font-medium text-white text-sm">{s.title}</p>
+                          {s.content && <p className="text-white/40 text-xs mt-1 line-clamp-2">{s.content}</p>}
+                        </div>
+                        <div className="flex items-center gap-2 ml-3">
+                          <button onClick={() => startEditStory(s)} className="text-white/20 hover:text-violet-400 transition-colors">
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => deleteStory(s.id)} className="text-white/20 hover:text-red-400 transition-colors">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
                 {stories.length === 0 && !showNewStory && (
@@ -705,6 +987,64 @@ export default function DashboardPage() {
                 ))}
                 {socialLinks.length === 0 && !showNewSocial && (
                   <p className="text-white/20 text-sm text-center py-10">No social links yet. Add your first one!</p>
+                )}
+              </div>
+            )}
+
+            {/* ── MEDIA TAB ───────────────────────────────────── */}
+            {tab === 'media' && (
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">Media <span className="text-white/30 text-sm font-normal ml-1">({media.length})</span></h2>
+                    <p className="text-xs text-white/30 mt-0.5">Images and videos for your portfolio</p>
+                  </div>
+                </div>
+
+                {/* Upload area */}
+                <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5 space-y-3">
+                  <h3 className="text-sm font-medium text-white">Upload new file</h3>
+                  <input
+                    value={mediaAltText}
+                    onChange={e => setMediaAltText(e.target.value)}
+                    placeholder="Alt text / caption (optional)"
+                    className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30"
+                  />
+                  <label className={`flex items-center gap-2 cursor-pointer ${mediaUploading ? 'pointer-events-none opacity-50' : ''}`}>
+                    <span className="flex items-center gap-1.5 px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors">
+                      {mediaUploading
+                        ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading…</>
+                        : <><Upload className="w-4 h-4" /> Choose file</>}
+                    </span>
+                    <span className="text-xs text-white/30">Images or videos</span>
+                    <input type="file" accept="image/*,video/*" className="hidden" onChange={uploadMedia} disabled={mediaUploading} />
+                  </label>
+                </div>
+
+                {/* Media grid */}
+                {media.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {media.map((m) => (
+                      <div key={m.id} className="relative group bg-white/[0.03] border border-white/[0.07] rounded-xl overflow-hidden aspect-square">
+                        {m.media_type === 'video' ? (
+                          <video src={m.url} className="w-full h-full object-cover" muted playsInline />
+                        ) : (
+                          <Image src={m.url} alt={m.alt_text || 'Media'} fill className="object-cover" />
+                        )}
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
+                          {m.alt_text && <p className="text-white/70 text-xs text-center line-clamp-2">{m.alt_text}</p>}
+                          <button
+                            onClick={() => deleteMedia(m.id, m.url)}
+                            className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-white/20 text-sm text-center py-10">No media uploaded yet.</p>
                 )}
               </div>
             )}

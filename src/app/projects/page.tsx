@@ -14,16 +14,33 @@ export default async function ProjectsPage() {
   const { data: owner } = await supabase
     .from('owner_profiles')
     .select('id, name')
+    .eq('onboarding_complete', true)
     .limit(1)
     .single()
 
   const { data: projects } = owner
     ? await supabase
         .from('projects')
-        .select('*, media(url, alt_text)')
+        .select('*')
         .eq('owner_id', owner.id)
         .order('sort_order', { ascending: true })
     : { data: [] }
+
+  // Fetch media separately — no direct FK exists between projects and media
+  // (polymorphic association via associated_entity_type / associated_entity_id)
+  const projectIds = projects?.map(p => p.id) || []
+  const { data: projectMedia } = projectIds.length > 0
+    ? await supabase
+        .from('media')
+        .select('url, alt_text, associated_entity_id')
+        .eq('associated_entity_type', 'project')
+        .in('associated_entity_id', projectIds)
+    : { data: [] }
+
+  const projectsWithMedia = projects?.map(p => ({
+    ...p,
+    media: projectMedia?.filter(m => m.associated_entity_id === p.id) || [],
+  })) || []
 
   // Track visit (fire-and-forget on server)
   if (owner) {
@@ -37,9 +54,9 @@ export default async function ProjectsPage() {
       accentColor="blue-400"
       bgGradient="bg-gradient-to-br from-blue-950/20 via-slate-950 to-slate-950"
     >
-      {projects && projects.length > 0 ? (
+      {projectsWithMedia.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {projects.map((project, i) => (
+          {projectsWithMedia.map((project, i) => (
             <ProjectCard key={project.id} project={project} index={i} />
           ))}
         </div>

@@ -13,7 +13,8 @@ export default async function AboutPage() {
 
   const { data: owner } = await supabase
     .from('owner_profiles')
-    .select('name, headline, bio, profile_image_url')
+    .select('id, name, headline, bio, profile_image_url')
+    .eq('onboarding_complete', true)
     .limit(1)
     .single()
 
@@ -21,6 +22,7 @@ export default async function AboutPage() {
     ? await supabase
         .from('social_links')
         .select('*')
+        .eq('owner_id', owner.id)
         .order('sort_order', { ascending: true })
     : { data: [] }
 

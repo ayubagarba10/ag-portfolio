@@ -171,6 +171,29 @@ create policy "Owner can read page_visits" on page_visits for select using (
 -- ============================================
 -- Storage bucket for media uploads
 -- ============================================
--- Run separately in Supabase Storage settings:
--- Create bucket named: portfolio-media
--- Set to public
+-- STEP 1: In Supabase Dashboard → Storage → New bucket
+--   Name: portfolio-media
+--   Public: ON (toggle must be enabled)
+--
+-- STEP 2: Run the SQL below in the SQL Editor to add storage policies.
+--   (The bucket must exist before running these.)
+
+create policy "Authenticated users can upload media"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'portfolio-media');
+
+create policy "Authenticated users can update media"
+  on storage.objects for update
+  to authenticated
+  using (bucket_id = 'portfolio-media');
+
+create policy "Authenticated users can delete media"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'portfolio-media');
+
+create policy "Public can view media"
+  on storage.objects for select
+  to public
+  using (bucket_id = 'portfolio-media');

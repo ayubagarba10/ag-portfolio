@@ -14,16 +14,38 @@ export default async function StoriesPage() {
   const { data: owner } = await supabase
     .from('owner_profiles')
     .select('id')
+    .eq('onboarding_complete', true)
     .limit(1)
     .single()
 
   const { data: stories } = owner
     ? await supabase
         .from('stories')
-        .select('*, media(url, alt_text)')
+        .select('*')
         .eq('owner_id', owner.id)
         .order('created_at', { ascending: false })
     : { data: [] }
+
+  // Fetch media separately — no direct FK exists between stories and media
+  // (polymorphic association via associated_entity_type / associated_entity_id)
+  const storyIds = stories?.map(s => s.id) || []
+  const { data: storyMedia } = storyIds.length > 0
+    ? await supabase
+        .from('media')
+        .select('url, alt_text, associated_entity_id')
+        .eq('associated_entity_type', 'story')
+        .in('associated_entity_id', storyIds)
+    : { data: [] }
+
+  const storiesWithMedia = stories?.map(s => ({
+    ...s,
+    media: storyMedia?.filter(m => m.associated_entity_id === s.id) || [],
+  })) || []
+
+  // Track visit (fire-and-forget on server)
+  if (owner) {
+    supabase.from('page_visits').insert({ page_name: 'stories', owner_id: owner.id }).then(() => {})
+  }
 
   return (
     <PageShell
@@ -32,9 +54,9 @@ export default async function StoriesPage() {
       accentColor="amber-400"
       bgGradient="bg-gradient-to-br from-amber-950/20 via-slate-950 to-slate-950"
     >
-      {stories && stories.length > 0 ? (
+      {storiesWithMedia.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
-          {stories.map((story, i) => (
+          {storiesWithMedia.map((story, i) => (
             <StoryPost key={story.id} story={story} index={i} />
           ))}
         </div>

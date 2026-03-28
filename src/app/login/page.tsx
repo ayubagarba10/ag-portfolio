@@ -12,6 +12,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [slowConnection, setSlowConnection] = useState(false)
   const [showChoice, setShowChoice] = useState(false)
   const [onboardingDone, setOnboardingDone] = useState(false)
   const router = useRouter()
@@ -20,35 +21,44 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setLoading(true)
+    setSlowConnection(false)
 
-    const supabase = createClient()
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+    // Show patience message throughout the entire login process (auth + profile fetch)
+    const slowTimer = setTimeout(() => setSlowConnection(true), 7000)
 
-    if (authError || !authData.user) {
-      setError(authError?.message || 'Login failed')
+    try {
+      const supabase = createClient()
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+
+      if (authError || !authData.user) {
+        setError(authError?.message || 'Login failed. Please check your email and password.')
+        return
+      }
+
+      // Check if owner profile + onboarding exist
+      const { data: profile } = await supabase
+        .from('owner_profiles')
+        .select('onboarding_complete')
+        .eq('user_id', authData.user.id)
+        .single()
+
+      const isDone = profile?.onboarding_complete === true
+      setOnboardingDone(isDone)
+
+      if (!isDone) {
+        router.push('/onboarding')
+        return
+      }
+
+      // Returning user with completed onboarding: show choice screen
+      setShowChoice(true)
+    } catch (err: any) {
+      setError(err?.message || 'Something went wrong. Please try again.')
+    } finally {
+      clearTimeout(slowTimer)
+      setSlowConnection(false)
       setLoading(false)
-      return
     }
-
-    // Check if owner profile + onboarding exist
-    const { data: profile } = await supabase
-      .from('owner_profiles')
-      .select('onboarding_complete')
-      .eq('user_id', authData.user.id)
-      .single()
-
-    const isDone = profile?.onboarding_complete === true
-    setOnboardingDone(isDone)
-
-    if (!isDone) {
-      // First-time user: go straight to onboarding
-      router.push('/onboarding')
-      return
-    }
-
-    // Returning user: show choice screen
-    setShowChoice(true)
-    setLoading(false)
   }
 
   if (showChoice) {
@@ -169,6 +179,16 @@ export default function LoginPage() {
           >
             {loading ? 'Signing in…' : 'Sign in'}
           </button>
+
+          {slowConnection && (
+            <motion.p
+              className="text-white/30 text-xs text-center mt-2 leading-snug"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+            >
+              Taking a moment — the server may be waking up. Please wait…
+            </motion.p>
+          )}
         </form>
 
         <div className="mt-6 text-center">

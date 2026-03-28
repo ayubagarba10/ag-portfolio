@@ -30,7 +30,7 @@ export async function ensureOwnerProfile(): Promise<{ id: string } | null> {
 
   const { data: created } = await admin
     .from('owner_profiles')
-    .insert({ user_id: user.id, name: '', onboarding_complete: true })
+    .insert({ user_id: user.id, name: '' })
     .select('id')
     .single()
 
