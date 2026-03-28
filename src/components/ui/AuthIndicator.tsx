@@ -12,14 +12,14 @@ export default function AuthIndicator() {
   useEffect(() => {
     const supabase = createClient()
 
-    async function checkAuth() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setInitials(null); return }
+    // Use getSession (reads localStorage, no navigator lock acquired)
+    async function checkAuth(userId?: string | null) {
+      if (!userId) { setInitials(null); return }
 
       const { data: profile } = await supabase
         .from('owner_profiles')
         .select('name')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .single()
 
       if (profile?.name) {
@@ -33,9 +33,14 @@ export default function AuthIndicator() {
       }
     }
 
-    checkAuth()
+    // Initial load — getSession reads localStorage, no lock
+    supabase.auth.getSession().then(({ data: { session } }) => checkAuth(session?.user?.id))
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => checkAuth())
+    // onAuthStateChange already provides the session — no getUser() needed
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      checkAuth(session?.user?.id ?? null)
+    })
+
     return () => subscription.unsubscribe()
   }, [])
 
