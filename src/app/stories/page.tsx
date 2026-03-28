@@ -3,6 +3,8 @@ import PageShell from '@/components/ui/PageShell'
 import StoryPost from '@/components/sections/StoryPost'
 import type { Metadata } from 'next'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Stories — AG Portfolio',
   description: 'Personal moments, reflections, and life beyond work.',

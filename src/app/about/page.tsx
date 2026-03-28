@@ -3,6 +3,8 @@ import PageShell from '@/components/ui/PageShell'
 import Image from 'next/image'
 import type { Metadata } from 'next'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'About — AG Portfolio',
   description: 'Who I am beyond the resume.',
@@ -13,7 +15,7 @@ export default async function AboutPage() {
 
   const { data: owner } = await supabase
     .from('owner_profiles')
-    .select('id, name, headline, bio, profile_image_url')
+    .select('id, name, headline, bio, personal_story, profile_image_url')
     .eq('onboarding_complete', true)
     .limit(1)
     .single()
@@ -60,6 +62,12 @@ export default async function AboutPage() {
               <p className="text-white/60 leading-relaxed text-sm md:text-base">{owner.bio}</p>
             ) : (
               <p className="text-white/20 text-sm italic">Bio coming soon.</p>
+            )}
+
+            {owner?.personal_story && (
+              <div className="mt-6 pt-6 border-t border-white/[0.06]">
+                <p className="text-white/60 leading-relaxed text-sm md:text-base whitespace-pre-line">{owner.personal_story}</p>
+              </div>
             )}
 
             {/* Social links */}

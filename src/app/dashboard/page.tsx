@@ -12,13 +12,15 @@ import { slugify } from '@/lib/utils'
 import Image from 'next/image'
 import { ensureOwnerProfile } from './actions'
 
-type Tab = 'profile' | 'projects' | 'experience' | 'stories' | 'social' | 'media' | 'analytics'
+type Tab = 'profile' | 'projects' | 'experience' | 'stories' | 'social' | 'media' | 'analytics' | 'messages'
 
 interface OwnerProfile {
   id: string
   name: string
   headline: string
   bio: string
+  personal_story: string
+  contact_email_visible: boolean
   profile_image_url: string
   onboarding_complete: boolean
 }
@@ -117,9 +119,14 @@ export default function DashboardPage() {
   const [name, setName] = useState('')
   const [headline, setHeadline] = useState('')
   const [bio, setBio] = useState('')
+  const [personalStory, setPersonalStory] = useState('')
+  const [contactEmailVisible, setContactEmailVisible] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+
+  // Contact messages
+  const [messages, setMessages] = useState<any[]>([])
 
   // New project form
   const [showNewProject, setShowNewProject] = useState(false)
@@ -215,19 +222,23 @@ export default function DashboardPage() {
       setName(p.name || '')
       setHeadline(p.headline || '')
       setBio(p.bio || '')
+      setPersonalStory(p.personal_story || '')
+      setContactEmailVisible(p.contact_email_visible !== false)
 
-      const [{ data: proj }, { data: exp }, { data: st }, { data: sl }, { data: med }] = await Promise.all([
+      const [{ data: proj }, { data: exp }, { data: st }, { data: sl }, { data: med }, { data: msgs }] = await Promise.all([
         supabase.from('projects').select('*').eq('owner_id', p.id).order('sort_order'),
         supabase.from('experiences').select('*').eq('owner_id', p.id).order('start_date', { ascending: false }),
         supabase.from('stories').select('*').eq('owner_id', p.id).order('created_at', { ascending: false }),
         supabase.from('social_links').select('*').eq('owner_id', p.id).order('sort_order'),
         supabase.from('media').select('*').eq('owner_id', p.id).order('uploaded_at', { ascending: false }),
+        supabase.from('contact_messages').select('*').eq('owner_id', p.id).order('submitted_at', { ascending: false }),
       ])
       setProjects(proj || [])
       setExperiences(exp || [])
       setStories(st || [])
       setSocialLinks(sl || [])
       setMedia(med || [])
+      setMessages(msgs || [])
 
       const { data: visits } = await supabase
         .from('page_visits')
@@ -262,7 +273,7 @@ export default function DashboardPage() {
     try {
       const { error } = await supabase
         .from('owner_profiles')
-        .update({ name, headline, bio, last_updated_at: new Date().toISOString() })
+        .update({ name, headline, bio, personal_story: personalStory, contact_email_visible: contactEmailVisible, last_updated_at: new Date().toISOString() })
         .eq('id', owner.id)
       if (error) throw error
       setSaved(true)
@@ -289,12 +300,14 @@ export default function DashboardPage() {
       if (uploadError) throw uploadError
       const { data } = supabase.storage.from('portfolio-media').getPublicUrl(path)
       if (!data?.publicUrl) throw new Error('Could not get public URL')
+      // Append cache-busting timestamp so the browser re-fetches after replacement
+      const urlWithBust = `${data.publicUrl}?t=${Date.now()}`
       const { error: updateError } = await supabase
         .from('owner_profiles')
-        .update({ profile_image_url: data.publicUrl })
+        .update({ profile_image_url: urlWithBust })
         .eq('id', owner.id)
       if (updateError) throw updateError
-      setOwner({ ...owner, profile_image_url: data.publicUrl })
+      setOwner({ ...owner, profile_image_url: urlWithBust })
     } catch (err: any) {
       showError(err?.message || 'Photo upload failed.')
     } finally {
@@ -586,6 +599,7 @@ export default function DashboardPage() {
     { id: 'social', label: 'Social Links' },
     { id: 'media', label: 'Media' },
     { id: 'analytics', label: 'Analytics' },
+    { id: 'messages', label: `Messages${messages.length > 0 ? ` (${messages.filter(m => !m.is_read).length})` : ''}` },
   ]
 
   return (
@@ -689,6 +703,24 @@ export default function DashboardPage() {
                     <label className="text-xs text-white/40 mb-1 block">Bio</label>
                     <textarea value={bio} onChange={e => setBio(e.target.value)} rows={5} className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 resize-none" />
                     <AISuggestButton text={bio} context="personal bio for a portfolio website" onAccept={setBio} />
+                  </div>
+                  <div>
+                    <label className="text-xs text-white/40 mb-1 block">Personal Story <span className="text-white/20 font-normal">(shown on About page below bio)</span></label>
+                    <textarea value={personalStory} onChange={e => setPersonalStory(e.target.value)} rows={6} placeholder="Share a deeper story — what drives you, where you're from, or what you're proud of beyond the resume…" className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-white/30 resize-none" />
+                    <AISuggestButton text={personalStory} context="personal story section for a portfolio website — deeper narrative beyond a bio" onAccept={setPersonalStory} />
+                  </div>
+                  <div className="flex items-center justify-between py-1">
+                    <div>
+                      <p className="text-sm text-white/70">Show contact form on /connect</p>
+                      <p className="text-xs text-white/30 mt-0.5">Visitors can send you messages from the Connect page</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setContactEmailVisible(!contactEmailVisible)}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${contactEmailVisible ? 'bg-emerald-500' : 'bg-white/10'}`}
+                    >
+                      <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${contactEmailVisible ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
                   </div>
                 </div>
 
@@ -1096,6 +1128,61 @@ export default function DashboardPage() {
                         )
                       })}
                     </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── MESSAGES TAB ────────────────────────────────── */}
+            {tab === 'messages' && (
+              <div className="space-y-5">
+                <h2 className="text-lg font-semibold text-white">
+                  Messages <span className="text-white/30 text-sm font-normal ml-1">({messages.length})</span>
+                </h2>
+
+                {messages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-center">
+                    <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-3">
+                      <span className="text-xl">💬</span>
+                    </div>
+                    <p className="text-white/30 text-sm">No messages yet.</p>
+                    <p className="text-white/20 text-xs mt-1">Messages sent from /connect will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {messages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`bg-white/[0.03] border rounded-2xl p-5 space-y-2 ${msg.is_read ? 'border-white/[0.07]' : 'border-rose-500/30'}`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-medium text-white">{msg.sender_name}</p>
+                            <p className="text-xs text-white/40">{msg.sender_email}</p>
+                          </div>
+                          <div className="flex items-center gap-3 flex-shrink-0">
+                            {!msg.is_read && (
+                              <span className="text-[10px] bg-rose-500/20 text-rose-400 px-2 py-0.5 rounded-full font-medium">New</span>
+                            )}
+                            <p className="text-xs text-white/30">
+                              {new Date(msg.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </p>
+                          </div>
+                        </div>
+                        <p className="text-sm text-white/60 leading-relaxed">{msg.message}</p>
+                        {!msg.is_read && (
+                          <button
+                            onClick={async () => {
+                              await supabase.from('contact_messages').update({ is_read: true }).eq('id', msg.id)
+                              setMessages(messages.map(m => m.id === msg.id ? { ...m, is_read: true } : m))
+                            }}
+                            className="text-xs text-white/30 hover:text-white/60 transition-colors"
+                          >
+                            Mark as read
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

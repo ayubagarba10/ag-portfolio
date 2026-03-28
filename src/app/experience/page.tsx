@@ -3,6 +3,8 @@ import PageShell from '@/components/ui/PageShell'
 import ExperienceTimeline from '@/components/sections/ExperienceTimeline'
 import type { Metadata } from 'next'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Experience — AG Portfolio',
   description: 'My professional journey and career milestones.',

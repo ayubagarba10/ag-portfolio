@@ -3,6 +3,8 @@ import PageShell from '@/components/ui/PageShell'
 import ProjectCard from '@/components/sections/ProjectCard'
 import type { Metadata } from 'next'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Projects — AG Portfolio',
   description: 'Work I\'ve built — apps, systems, and ideas brought to life.',

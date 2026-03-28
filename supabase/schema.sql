@@ -197,3 +197,40 @@ create policy "Public can view media"
   on storage.objects for select
   to public
   using (bucket_id = 'portfolio-media');
+
+-- ============================================
+-- Part 5 additions — run these in SQL Editor
+-- after the initial schema is already applied
+-- ============================================
+
+-- New columns on owner_profiles
+alter table owner_profiles add column if not exists personal_story text default '';
+alter table owner_profiles add column if not exists contact_email_visible boolean default true;
+
+-- Contact messages (submitted by visitors via /connect page)
+create table if not exists contact_messages (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid references owner_profiles(id) on delete cascade,
+  sender_name text not null,
+  sender_email text not null,
+  message text not null,
+  submitted_at timestamptz default now(),
+  is_read boolean default false
+);
+
+alter table contact_messages enable row level security;
+
+-- Anyone (visitors) can submit a contact message
+create policy "Anyone can submit contact"
+  on contact_messages for insert
+  with check (true);
+
+-- Only the authenticated owner can read their messages
+create policy "Owner can read contact"
+  on contact_messages for select
+  using (owner_id in (select id from owner_profiles where user_id = auth.uid()));
+
+-- Owner can mark messages as read
+create policy "Owner can update contact"
+  on contact_messages for update
+  using (owner_id in (select id from owner_profiles where user_id = auth.uid()));

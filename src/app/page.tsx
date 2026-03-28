@@ -24,6 +24,7 @@ export default function HomePage() {
     supabase
       .from('owner_profiles')
       .select('name, headline, profile_image_url')
+      .eq('onboarding_complete', true)
       .limit(1)
       .single()
       .then(({ data }) => { if (data) setProfile(data) })
