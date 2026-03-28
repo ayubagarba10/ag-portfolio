@@ -17,6 +17,8 @@ export default async function ConnectPage() {
   const { data: owner } = await supabase
     .from('owner_profiles')
     .select('*')
+    .neq('name', '')
+    .order('last_updated_at', { ascending: false })
     .limit(1)
     .single()
 

@@ -16,6 +16,8 @@ export default async function StoriesPage() {
   const { data: owner } = await supabase
     .from('owner_profiles')
     .select('id')
+    .neq('name', '')
+    .order('last_updated_at', { ascending: false })
     .limit(1)
     .single()
 
