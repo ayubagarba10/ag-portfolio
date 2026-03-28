@@ -16,7 +16,6 @@ export default async function AboutPage() {
   const { data: owner } = await supabase
     .from('owner_profiles')
     .select('id, name, headline, bio, personal_story, profile_image_url')
-    .eq('onboarding_complete', true)
     .limit(1)
     .single()
 

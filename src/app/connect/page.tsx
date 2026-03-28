@@ -17,7 +17,6 @@ export default async function ConnectPage() {
   const { data: owner } = await supabase
     .from('owner_profiles')
     .select('id, contact_email_visible')
-    .eq('onboarding_complete', true)
     .limit(1)
     .single()
 

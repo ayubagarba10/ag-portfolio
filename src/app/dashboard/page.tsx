@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import {
   LogOut, Plus, Trash2, ExternalLink, Upload, Sparkles, Copy, Check,
-  BarChart2, Gift, Briefcase, Loader2, Pencil,
+  BarChart2, Gift, Briefcase, Loader2, Pencil, MessageSquare,
 } from 'lucide-react'
 import { slugify } from '@/lib/utils'
 import Image from 'next/image'
@@ -187,7 +187,10 @@ export default function DashboardPage() {
 
   async function loadAll() {
     setInitializing(true)
-    const { data: { user } } = await supabase.auth.getUser()
+    // getSession reads from localStorage without acquiring a navigator lock,
+    // avoiding the "lock stolen" error when multiple requests run concurrently.
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     if (!user) {
       setInitializing(false)
       return
@@ -213,11 +216,6 @@ export default function DashboardPage() {
     }
 
     if (p) {
-      if (!p.onboarding_complete) {
-        router.push('/onboarding')
-        return
-      }
-
       setOwner(p)
       setName(p.name || '')
       setHeadline(p.headline || '')
@@ -1086,7 +1084,7 @@ export default function DashboardPage() {
               <div className="space-y-5">
                 <h2 className="text-lg font-semibold text-white">Analytics</h2>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div className="bg-white/[0.03] border border-white/[0.07] rounded-xl p-4 text-center">
                     <Briefcase className="w-5 h-5 text-white/30 mx-auto mb-2" />
                     <p className="text-2xl font-semibold text-white">{projects.length}</p>
@@ -1101,6 +1099,11 @@ export default function DashboardPage() {
                     <Gift className="w-5 h-5 text-white/30 mx-auto mb-2" />
                     <p className="text-2xl font-semibold text-white">{giftCount}</p>
                     <p className="text-xs text-white/30 mt-0.5">Gift opens</p>
+                  </div>
+                  <div className="bg-white/[0.03] border border-white/[0.07] rounded-xl p-4 text-center">
+                    <MessageSquare className="w-5 h-5 text-white/30 mx-auto mb-2" />
+                    <p className="text-2xl font-semibold text-white">{messages.length}</p>
+                    <p className="text-xs text-white/30 mt-0.5">Messages</p>
                   </div>
                 </div>
 

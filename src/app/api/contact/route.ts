@@ -16,11 +16,10 @@ export async function POST(request: NextRequest) {
     if (!sender_email?.trim() || !EMAIL_RE.test(sender_email)) return NextResponse.json({ error: 'A valid email is required.' }, { status: 400 })
     if (!message?.trim()) return NextResponse.json({ error: 'Message is required.' }, { status: 400 })
 
-    // Find the completed owner profile (no need to expose owner_id in the request)
+    // Find the owner profile — no need to expose owner_id in the public request
     const { data: owner } = await supabase
       .from('owner_profiles')
       .select('id')
-      .eq('onboarding_complete', true)
       .limit(1)
       .single()
 

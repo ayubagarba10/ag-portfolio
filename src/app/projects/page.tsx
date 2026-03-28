@@ -16,7 +16,6 @@ export default async function ProjectsPage() {
   const { data: owner } = await supabase
     .from('owner_profiles')
     .select('id, name')
-    .eq('onboarding_complete', true)
     .limit(1)
     .single()
 

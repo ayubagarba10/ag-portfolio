@@ -32,6 +32,7 @@ export default function PageShell({ children, title, subtitle, accentColor, bgGr
           <Link href="/experience" className="hover:text-white/80 transition-colors">Experience</Link>
           <Link href="/about" className="hover:text-white/80 transition-colors">About</Link>
           <Link href="/stories" className="hover:text-white/80 transition-colors">Stories</Link>
+          <Link href="/connect" className="hover:text-white/80 transition-colors">Connect</Link>
         </div>
       </nav>
 
