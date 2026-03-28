@@ -21,6 +21,7 @@ interface OwnerProfile {
   bio: string
   personal_story: string
   contact_email_visible: boolean
+  use_image_on_landing: boolean
   profile_image_url: string
   onboarding_complete: boolean
 }
@@ -121,6 +122,7 @@ export default function DashboardPage() {
   const [bio, setBio] = useState('')
   const [personalStory, setPersonalStory] = useState('')
   const [contactEmailVisible, setContactEmailVisible] = useState(true)
+  const [useImageOnLanding, setUseImageOnLanding] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -222,21 +224,26 @@ export default function DashboardPage() {
       setBio(p.bio || '')
       setPersonalStory(p.personal_story || '')
       setContactEmailVisible(p.contact_email_visible !== false)
+      setUseImageOnLanding(p.use_image_on_landing !== false)
 
-      const [{ data: proj }, { data: exp }, { data: st }, { data: sl }, { data: med }, { data: msgs }] = await Promise.all([
+      const [{ data: proj }, { data: exp }, { data: st }, { data: sl }, { data: med }] = await Promise.all([
         supabase.from('projects').select('*').eq('owner_id', p.id).order('sort_order'),
         supabase.from('experiences').select('*').eq('owner_id', p.id).order('start_date', { ascending: false }),
         supabase.from('stories').select('*').eq('owner_id', p.id).order('created_at', { ascending: false }),
         supabase.from('social_links').select('*').eq('owner_id', p.id).order('sort_order'),
         supabase.from('media').select('*').eq('owner_id', p.id).order('uploaded_at', { ascending: false }),
-        supabase.from('contact_messages').select('*').eq('owner_id', p.id).order('submitted_at', { ascending: false }),
       ])
       setProjects(proj || [])
       setExperiences(exp || [])
       setStories(st || [])
       setSocialLinks(sl || [])
       setMedia(med || [])
-      setMessages(msgs || [])
+
+      // Load messages via API route (service role bypasses RLS)
+      fetch('/api/messages')
+        .then(r => r.ok ? r.json() : [])
+        .then(msgs => setMessages(msgs || []))
+        .catch(() => {})
 
       const { data: visits } = await supabase
         .from('page_visits')
@@ -271,7 +278,7 @@ export default function DashboardPage() {
     try {
       const { error } = await supabase
         .from('owner_profiles')
-        .update({ name, headline, bio, personal_story: personalStory, contact_email_visible: contactEmailVisible, last_updated_at: new Date().toISOString() })
+        .update({ name, headline, bio, personal_story: personalStory, contact_email_visible: contactEmailVisible, use_image_on_landing: useImageOnLanding, last_updated_at: new Date().toISOString() })
         .eq('id', owner.id)
       if (error) throw error
       setSaved(true)
@@ -288,7 +295,8 @@ export default function DashboardPage() {
     if (!file || !owner) return
     setPhotoUploading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user) return
       const ext = file.name.split('.').pop()
       const path = `profiles/${user.id}/main.${ext}`
@@ -718,6 +726,19 @@ export default function DashboardPage() {
                       className={`relative w-11 h-6 rounded-full transition-colors ${contactEmailVisible ? 'bg-emerald-500' : 'bg-white/10'}`}
                     >
                       <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${contactEmailVisible ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between py-1">
+                    <div>
+                      <p className="text-sm text-white/70">Show photo on landing page</p>
+                      <p className="text-xs text-white/30 mt-0.5">Display your profile image in the card on the home screen</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setUseImageOnLanding(!useImageOnLanding)}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${useImageOnLanding ? 'bg-emerald-500' : 'bg-white/10'}`}
+                    >
+                      <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${useImageOnLanding ? 'translate-x-6' : 'translate-x-1'}`} />
                     </button>
                   </div>
                 </div>
@@ -1176,7 +1197,11 @@ export default function DashboardPage() {
                         {!msg.is_read && (
                           <button
                             onClick={async () => {
-                              await supabase.from('contact_messages').update({ is_read: true }).eq('id', msg.id)
+                              await fetch('/api/messages', {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id: msg.id }),
+                              })
                               setMessages(messages.map(m => m.id === msg.id ? { ...m, is_read: true } : m))
                             }}
                             className="text-xs text-white/30 hover:text-white/60 transition-colors"

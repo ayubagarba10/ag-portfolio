@@ -8,9 +8,12 @@ interface CinematicHeroProps {
   name: string
   headline: string
   visible: boolean
+  useImageOnLanding?: boolean
 }
 
-export default function CinematicHero({ profileImageUrl, name, headline, visible }: CinematicHeroProps) {
+export default function CinematicHero({ profileImageUrl, name, headline, visible, useImageOnLanding = true }: CinematicHeroProps) {
+  const showImage = profileImageUrl && useImageOnLanding
+
   return (
     <motion.div
       className="relative w-full h-full"
@@ -28,11 +31,12 @@ export default function CinematicHero({ profileImageUrl, name, headline, visible
       {/* Card */}
       <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/[0.08]">
         {/* Photo */}
-        {profileImageUrl ? (
+        {showImage ? (
           <Image
             src={profileImageUrl}
             alt={name || 'Profile photo'}
             fill
+            sizes="(max-width: 640px) 160px, (max-width: 768px) 208px, 256px"
             className="object-cover object-top"
             priority
           />

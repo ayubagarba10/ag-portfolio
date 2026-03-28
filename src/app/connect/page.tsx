@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import PageShell from '@/components/ui/PageShell'
 import { ExternalLink } from 'lucide-react'
 import ContactForm from '@/components/sections/ContactForm'
@@ -12,11 +12,11 @@ export const metadata: Metadata = {
 }
 
 export default async function ConnectPage() {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data: owner } = await supabase
     .from('owner_profiles')
-    .select('id, contact_email_visible')
+    .select('*')
     .limit(1)
     .single()
 

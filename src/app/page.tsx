@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import WelcomeAnimation from '@/components/landing/WelcomeAnimation'
 import CinematicHero from '@/components/landing/CinematicHero'
 import OrbitNav from '@/components/landing/OrbitNav'
@@ -13,6 +12,7 @@ interface OwnerProfile {
   name: string
   headline: string
   profile_image_url: string
+  use_image_on_landing?: boolean
 }
 
 export default function HomePage() {
@@ -20,13 +20,10 @@ export default function HomePage() {
   const [profile, setProfile] = useState<OwnerProfile | null>(null)
 
   useEffect(() => {
-    const supabase = createClient()
-    supabase
-      .from('owner_profiles')
-      .select('name, headline, profile_image_url')
-      .limit(1)
-      .single()
-      .then(({ data }) => { if (data) setProfile(data) })
+    fetch('/api/profile')
+      .then(r => r.json())
+      .then(data => { if (data) setProfile(data) })
+      .catch(() => {})
 
     fetch('/api/analytics', {
       method: 'POST',
@@ -70,6 +67,7 @@ export default function HomePage() {
               name={profile?.name || ''}
               headline={profile?.headline || ''}
               visible={welcomed}
+              useImageOnLanding={profile?.use_image_on_landing !== false}
             />
           </div>
           {/* z-[30]: Orbit icons — must be ABOVE card so tooltips aren't clipped */}

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import PageShell from '@/components/ui/PageShell'
 import StoryPost from '@/components/sections/StoryPost'
 import type { Metadata } from 'next'
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 }
 
 export default async function StoriesPage() {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data: owner } = await supabase
     .from('owner_profiles')

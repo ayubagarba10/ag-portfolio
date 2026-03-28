@@ -206,6 +206,7 @@ create policy "Public can view media"
 -- New columns on owner_profiles
 alter table owner_profiles add column if not exists personal_story text default '';
 alter table owner_profiles add column if not exists contact_email_visible boolean default true;
+alter table owner_profiles add column if not exists use_image_on_landing boolean default true;
 
 -- Contact messages (submitted by visitors via /connect page)
 create table if not exists contact_messages (
@@ -219,6 +220,11 @@ create table if not exists contact_messages (
 );
 
 alter table contact_messages enable row level security;
+
+-- Drop existing policies first (makes this safe to re-run)
+drop policy if exists "Anyone can submit contact" on contact_messages;
+drop policy if exists "Owner can read contact" on contact_messages;
+drop policy if exists "Owner can update contact" on contact_messages;
 
 -- Anyone (visitors) can submit a contact message
 create policy "Anyone can submit contact"

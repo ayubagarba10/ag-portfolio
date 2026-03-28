@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import PageShell from '@/components/ui/PageShell'
 import Image from 'next/image'
 import type { Metadata } from 'next'
@@ -11,11 +11,11 @@ export const metadata: Metadata = {
 }
 
 export default async function AboutPage() {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data: owner } = await supabase
     .from('owner_profiles')
-    .select('id, name, headline, bio, personal_story, profile_image_url')
+    .select('*')
     .limit(1)
     .single()
 
@@ -26,6 +26,10 @@ export default async function AboutPage() {
         .eq('owner_id', owner.id)
         .order('sort_order', { ascending: true })
     : { data: [] }
+
+  if (owner) {
+    supabase.from('page_visits').insert({ page_name: 'about', owner_id: owner.id }).then(() => {})
+  }
 
   return (
     <PageShell
