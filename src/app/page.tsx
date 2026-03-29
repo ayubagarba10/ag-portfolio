@@ -36,7 +36,7 @@ export default function HomePage() {
   const handleWelcomeDone = useCallback(() => setWelcomed(true), [])
 
   return (
-    <main className="relative w-screen min-h-screen overflow-x-hidden bg-slate-950">
+    <main className="relative w-screen min-h-screen md:h-screen overflow-x-hidden bg-slate-950">
       {/* z-0: Background radial gradient */}
       <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,_rgba(30,41,59,0.8)_0%,_rgba(2,6,23,1)_70%)]" />
 
