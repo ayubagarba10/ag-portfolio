@@ -34,3 +34,15 @@ html { scroll-behavior: smooth; }
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+/* Prevent elastic overscroll bounce on iOS */
+body {
+  overscroll-behavior: none;
+}
+
+/* Safe area bottom padding utility for BottomNav on notched devices */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

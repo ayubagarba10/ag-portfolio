@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import WelcomeAnimation from '@/components/landing/WelcomeAnimation'
 import CinematicHero from '@/components/landing/CinematicHero'
 import OrbitNav from '@/components/landing/OrbitNav'
+import MobileLandingGrid from '@/components/landing/MobileLandingGrid'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Settings } from 'lucide-react'
@@ -35,7 +36,7 @@ export default function HomePage() {
   const handleWelcomeDone = useCallback(() => setWelcomed(true), [])
 
   return (
-    <main className="relative w-screen h-screen overflow-hidden bg-slate-950">
+    <main className="relative w-screen min-h-screen overflow-x-hidden bg-slate-950">
       {/* z-0: Background radial gradient */}
       <div className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_at_center,_rgba(30,41,59,0.8)_0%,_rgba(2,6,23,1)_70%)]" />
 
@@ -55,11 +56,8 @@ export default function HomePage() {
       {/* z-10: Main content */}
       <div className="relative z-10 w-full h-full flex items-center justify-center">
 
-        {/* The orbit container — sized to the photo card.
-            Orbit icons are positioned relative to THIS container's center.
-            overflow-visible lets icons extend beyond the card bounds. */}
-        {/* Card grows across 3 breakpoints. Orbit radius matches each. */}
-        <div className="relative w-[160px] h-[200px] sm:w-[208px] sm:h-[256px] md:w-[256px] md:h-[320px] overflow-visible">
+        {/* DESKTOP: orbit layout — hidden on mobile */}
+        <div className="hidden md:block relative w-[256px] h-[320px] overflow-visible">
           {/* z-[20]: Photo card */}
           <div className="relative z-[20] w-full h-full">
             <CinematicHero
@@ -75,6 +73,25 @@ export default function HomePage() {
             <OrbitNav visible={welcomed} />
           </div>
         </div>
+
+        {/* MOBILE: stacked layout — hidden on md+ */}
+        <div className="flex md:hidden flex-col items-center gap-6 w-full pt-16 pb-28 min-h-screen">
+          {/* Profile card — 70vw wide with 4:5 aspect ratio */}
+          <div className="relative w-[70vw] max-w-[220px] aspect-[4/5]">
+            <div className="relative z-[20] w-full h-full">
+              <CinematicHero
+                profileImageUrl={profile?.profile_image_url || ''}
+                name={profile?.name || ''}
+                headline={profile?.headline || ''}
+                visible={welcomed}
+                useImageOnLanding={profile?.use_image_on_landing !== false}
+              />
+            </div>
+          </div>
+          {/* Section cards grid */}
+          <MobileLandingGrid visible={welcomed} />
+        </div>
+
       </div>
 
       {/* z-20: Owner login link — subtle top-right */}
@@ -100,7 +117,8 @@ export default function HomePage() {
         animate={{ opacity: welcomed ? 1 : 0 }}
         transition={{ delay: 2, duration: 0.8 }}
       >
-        Explore · Click any icon
+        <span className="hidden md:inline">Explore · Click any icon</span>
+        <span className="md:hidden">Tap any section</span>
       </motion.p>
     </main>
   )

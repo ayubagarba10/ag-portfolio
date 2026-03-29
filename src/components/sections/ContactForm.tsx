@@ -56,18 +56,20 @@ export default function ContactForm() {
           onChange={e => setSenderName(e.target.value)}
           required
           placeholder="Jane Smith"
-          className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-white/30"
+          className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/30 min-h-[44px]"
         />
       </div>
       <div>
         <label className="text-xs text-white/40 mb-1.5 block">Your email</label>
         <input
           type="email"
+          inputMode="email"
+          autoComplete="email"
           value={senderEmail}
           onChange={e => setSenderEmail(e.target.value)}
           required
           placeholder="jane@example.com"
-          className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-white/30"
+          className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/30 min-h-[44px]"
         />
       </div>
       <div>
@@ -78,7 +80,7 @@ export default function ContactForm() {
           required
           rows={5}
           placeholder="What's on your mind?"
-          className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-white/30 resize-none"
+          className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-3 text-base text-white placeholder-white/20 focus:outline-none focus:border-white/30 resize-none"
         />
       </div>
 
@@ -89,7 +91,7 @@ export default function ContactForm() {
       <button
         type="submit"
         disabled={submitting}
-        className="flex items-center gap-2 px-5 py-2.5 bg-rose-500 hover:bg-rose-400 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50"
+        className="flex items-center justify-center gap-2 w-full sm:w-auto px-5 py-3 bg-rose-500 hover:bg-rose-400 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-50 min-h-[44px]"
       >
         <Send className="w-4 h-4" />
         {submitting ? 'Sending…' : 'Send message'}

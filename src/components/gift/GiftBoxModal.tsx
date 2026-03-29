@@ -82,7 +82,7 @@ export default function GiftBoxModal({ open, onClose, profileImageUrl, ownerName
 
           {/* Modal */}
           <motion.div
-            className="relative w-full max-w-sm bg-gradient-to-b from-slate-900 to-slate-800 rounded-3xl p-8 overflow-hidden border border-white/10 shadow-2xl"
+            className="relative w-full max-w-sm bg-gradient-to-b from-slate-900 to-slate-800 rounded-3xl p-8 flex flex-col max-h-[80vh] overflow-hidden border border-white/10 shadow-2xl"
             initial={{ scale: 0.5, y: 60, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.8, y: 30, opacity: 0 }}
@@ -91,7 +91,8 @@ export default function GiftBoxModal({ open, onClose, profileImageUrl, ownerName
             {/* Close */}
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 text-white/40 hover:text-white/80 transition-colors"
+              className="absolute top-2 right-2 p-3 text-white/40 hover:text-white/80 transition-colors rounded-full"
+            aria-label="Close"
             >
               <X className="w-5 h-5" />
             </button>
@@ -122,6 +123,7 @@ export default function GiftBoxModal({ open, onClose, profileImageUrl, ownerName
             </motion.div>
 
             {/* Content */}
+            <div className="overflow-y-auto flex-1 -mx-2 px-2">
             <AnimatePresence>
               {showContent && (
                 <motion.div
@@ -184,6 +186,7 @@ export default function GiftBoxModal({ open, onClose, profileImageUrl, ownerName
                 </motion.div>
               )}
             </AnimatePresence>
+            </div>
           </motion.div>
         </motion.div>
       )}

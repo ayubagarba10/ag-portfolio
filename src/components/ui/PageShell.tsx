@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowLeft, Home } from 'lucide-react'
+import BottomNav from '@/components/ui/BottomNav'
 
 interface PageShellProps {
   children: React.ReactNode
@@ -27,7 +28,7 @@ export default function PageShell({ children, title, subtitle, accentColor, bgGr
           <Home className="w-4 h-4" />
           <span>Home</span>
         </Link>
-        <div className="flex gap-4 text-sm text-white/40">
+        <div className="hidden md:flex gap-4 text-sm text-white/40">
           <Link href="/projects" className="hover:text-white/80 transition-colors">Projects</Link>
           <Link href="/experience" className="hover:text-white/80 transition-colors">Experience</Link>
           <Link href="/about" className="hover:text-white/80 transition-colors">About</Link>
@@ -53,13 +54,14 @@ export default function PageShell({ children, title, subtitle, accentColor, bgGr
 
       {/* Content */}
       <motion.main
-        className="relative z-10 px-6 md:px-12 pb-24"
+        className="relative z-10 px-6 md:px-12 pb-20 md:pb-24"
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.15 }}
       >
         {children}
       </motion.main>
+      <BottomNav />
     </div>
   )
 }

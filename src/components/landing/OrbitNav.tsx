@@ -89,6 +89,7 @@ export default function OrbitNav({ visible }: { visible: boolean }) {
   const radius = screenSize === 'xs' ? 150 : screenSize === 'sm' ? 190 : 240
 
   return (
+    <div className="hidden md:block">
     <AnimatePresence>
       {visible && (
         <>
@@ -192,5 +193,6 @@ export default function OrbitNav({ visible }: { visible: boolean }) {
         </>
       )}
     </AnimatePresence>
+    </div>
   )
 }

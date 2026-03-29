@@ -87,14 +87,17 @@ function AISuggestButton({
 // ─── Copy Link Button ─────────────────────────────────────────────────────────
 function CopyLink({ path }: { path: string }) {
   const [copied, setCopied] = useState(false)
-  function copy() {
+  async function share() {
     const url = `${window.location.origin}${path}`
+    if (navigator.share) {
+      try { await navigator.share({ url }); return } catch {}
+    }
     navigator.clipboard.writeText(url)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
   return (
-    <button onClick={copy} className="flex items-center gap-1.5 text-xs text-white/30 hover:text-white/60 transition-colors">
+    <button onClick={share} className="flex items-center gap-1.5 text-xs text-white/30 hover:text-white/60 transition-colors">
       {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
       {copied ? 'Copied!' : 'Copy link'}
     </button>
@@ -641,7 +644,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <div className="flex">
+      <div className="flex flex-col md:flex-row">
         {/* Sidebar tabs */}
         <nav className="w-44 border-r border-white/[0.06] min-h-[calc(100vh-57px)] p-4 space-y-1 hidden md:block">
           {tabs.map(t => (
@@ -666,7 +669,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Content */}
-        <main className="flex-1 p-6 md:p-10 max-w-3xl">
+        <main className="flex-1 p-6 md:p-10 w-full max-w-full md:max-w-3xl">
           <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}>
 
             {/* ── PROFILE TAB ─────────────────────────────────── */}
