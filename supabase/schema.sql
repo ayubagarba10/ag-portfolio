@@ -240,3 +240,55 @@ create policy "Owner can read contact"
 create policy "Owner can update contact"
   on contact_messages for update
   using (owner_id in (select id from owner_profiles where user_id = auth.uid()));
+
+-- ============================================
+-- Part 6 additions — run these in SQL Editor
+-- after Part 5 is already applied
+-- ============================================
+
+-- Extend experiences with slug, preview text, and gallery speed
+alter table experiences add column if not exists slug text unique;
+alter table experiences add column if not exists preview_text text default '';
+alter table experiences add column if not exists gallery_speed integer default 5;
+
+-- Extend projects with preview text and gallery speed
+alter table projects add column if not exists preview_text text default '';
+alter table projects add column if not exists gallery_speed integer default 5;
+
+-- Extend media with external link support and gallery ordering
+alter table media add column if not exists source_type text check (source_type in ('upload', 'external_link')) default 'upload';
+alter table media add column if not exists external_url text default '';
+alter table media add column if not exists is_approved boolean default true;
+alter table media add column if not exists sort_order integer default 0;
+
+-- Story Series (groups of episodic stories, e.g. 90-day challenges)
+create table if not exists story_series (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid references owner_profiles(id) on delete cascade,
+  title text not null,
+  description text default '',
+  preview_text text default '',
+  slug text unique not null,
+  cover_image_url text default '',
+  sort_order integer default 0,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table story_series enable row level security;
+
+drop policy if exists "Public can read story_series" on story_series;
+drop policy if exists "Owner can manage story_series" on story_series;
+
+create policy "Public can read story_series"
+  on story_series for select using (true);
+
+create policy "Owner can manage story_series"
+  on story_series for all using (
+    owner_id in (select id from owner_profiles where user_id = auth.uid())
+  );
+
+-- Extend stories with series/episode fields and preview text
+alter table stories add column if not exists series_id uuid references story_series(id) on delete set null;
+alter table stories add column if not exists episode_number integer;
+alter table stories add column if not exists preview_text text default '';

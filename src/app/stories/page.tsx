@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import PageShell from '@/components/ui/PageShell'
-import StoryPost from '@/components/sections/StoryPost'
+import StoriesClient from './StoriesClient'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -21,31 +21,52 @@ export default async function StoriesPage() {
     .limit(1)
     .single()
 
-  const { data: stories } = owner
+  // Fetch story series
+  const { data: series } = owner
+    ? await supabase
+        .from('story_series')
+        .select('*')
+        .eq('owner_id', owner.id)
+        .order('sort_order', { ascending: true })
+    : { data: [] }
+
+  // Count episodes per series
+  const seriesIds = series?.map(s => s.id) || []
+  const seriesWithCount = await Promise.all(
+    (series || []).map(async s => {
+      const { count } = await supabase
+        .from('stories')
+        .select('id', { count: 'exact', head: true })
+        .eq('series_id', s.id)
+      return { ...s, episode_count: count ?? 0 }
+    })
+  )
+
+  // Fetch standalone stories (no series)
+  const { data: standalone } = owner
     ? await supabase
         .from('stories')
         .select('*')
         .eq('owner_id', owner.id)
+        .is('series_id', null)
         .order('created_at', { ascending: false })
     : { data: [] }
 
-  // Fetch media separately — no direct FK exists between stories and media
-  // (polymorphic association via associated_entity_type / associated_entity_id)
-  const storyIds = stories?.map(s => s.id) || []
-  const { data: storyMedia } = storyIds.length > 0
+  const standaloneIds = standalone?.map(s => s.id) || []
+  const { data: standaloneMedia } = standaloneIds.length > 0
     ? await supabase
         .from('media')
-        .select('url, alt_text, associated_entity_id')
+        .select('url, alt_text, source_type, external_url, associated_entity_id')
         .eq('associated_entity_type', 'story')
-        .in('associated_entity_id', storyIds)
+        .in('associated_entity_id', standaloneIds)
+        .order('sort_order', { ascending: true })
     : { data: [] }
 
-  const storiesWithMedia = stories?.map(s => ({
+  const standaloneWithMedia = (standalone || []).map(s => ({
     ...s,
-    media: storyMedia?.filter(m => m.associated_entity_id === s.id) || [],
-  })) || []
+    media: standaloneMedia?.filter(m => m.associated_entity_id === s.id) || [],
+  }))
 
-  // Track visit (fire-and-forget on server)
   if (owner) {
     supabase.from('page_visits').insert({ page_name: 'stories', owner_id: owner.id }).then(() => {})
   }
@@ -57,20 +78,7 @@ export default async function StoriesPage() {
       accentColor="amber-400"
       bgGradient="bg-gradient-to-br from-amber-950/20 via-slate-950 to-slate-950"
     >
-      {storiesWithMedia.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
-          {storiesWithMedia.map((story, i) => (
-            <StoryPost key={story.id} story={story} index={i} />
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-4">
-            <span className="text-2xl">📖</span>
-          </div>
-          <p className="text-white/30 text-sm">Stories coming soon.</p>
-        </div>
-      )}
+      <StoriesClient series={seriesWithCount} standalone={standaloneWithMedia} />
     </PageShell>
   )
 }
