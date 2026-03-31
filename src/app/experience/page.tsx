@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import PageShell from '@/components/ui/PageShell'
 import ExperienceCard from '@/components/sections/ExperienceCard'
+import MediaGallery from '@/components/ui/MediaGallery'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -44,6 +45,9 @@ export default async function ExperiencePage() {
     media: expMedia?.filter(m => m.associated_entity_id === e.id) || [],
   })) || []
 
+  // Collect all experience images for the right-column gallery
+  const allGalleryMedia = expMedia || []
+
   if (owner) {
     supabase.from('page_visits').insert({ page_name: 'experience', owner_id: owner.id }).then(() => {})
   }
@@ -56,10 +60,20 @@ export default async function ExperiencePage() {
       bgGradient="bg-gradient-to-br from-violet-950/20 via-slate-950 to-slate-950"
     >
       {experiencesWithMedia.length > 0 ? (
-        <div className="max-w-3xl space-y-4">
-          {experiencesWithMedia.map((exp, i) => (
-            <ExperienceCard key={exp.id} experience={exp} index={i} />
-          ))}
+        <div className={`grid gap-10 ${allGalleryMedia.length > 0 ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 max-w-3xl'}`}>
+          {/* Left — scrollable experience cards */}
+          <div className="space-y-4">
+            {experiencesWithMedia.map((exp, i) => (
+              <ExperienceCard key={exp.id} experience={exp} index={i} />
+            ))}
+          </div>
+
+          {/* Right — sticky rotating gallery (only if images exist) */}
+          {allGalleryMedia.length > 0 && (
+            <div className="lg:sticky lg:top-6 lg:self-start">
+              <MediaGallery media={allGalleryMedia} speedSeconds={5} />
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-24 text-center">

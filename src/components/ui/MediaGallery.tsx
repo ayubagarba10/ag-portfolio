@@ -140,23 +140,30 @@ export default function MediaGallery({ media, speedSeconds = 5 }: MediaGalleryPr
       <AnimatePresence>
         {lightbox && (
           <motion.div
-            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setLightbox(false)}
+            onKeyDown={e => e.key === 'Escape' && setLightbox(false)}
+            tabIndex={-1}
           >
+            {/* Close hint */}
+            <p className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/30 text-xs pointer-events-none select-none">
+              Click anywhere or press Esc to close
+            </p>
             <button
-              className="absolute top-4 right-4 p-2 text-white/60 hover:text-white"
-              onClick={() => setLightbox(false)}
+              className="absolute top-4 right-4 z-10 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all"
+              onClick={e => { e.stopPropagation(); setLightbox(false) }}
+              aria-label="Close"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </button>
             <motion.div
-              className="relative max-w-5xl w-full max-h-[85vh] aspect-video"
-              initial={{ scale: 0.9 }}
+              className="relative max-w-5xl w-full max-h-[85vh] aspect-video cursor-default"
+              initial={{ scale: 0.92 }}
               animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
+              exit={{ scale: 0.92 }}
               onClick={e => e.stopPropagation()}
             >
               {isVideo(item) ? (

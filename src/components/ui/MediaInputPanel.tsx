@@ -13,9 +13,10 @@ interface MediaInputPanelProps {
 
 function convertToDirectUrl(url: string): string {
   // Google Drive: https://drive.google.com/file/d/FILE_ID/view?...
-  const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/)
+  const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/?]+)/)
   if (driveMatch) {
-    return `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`
+    // thumbnail endpoint is much more reliable than uc?export=view
+    return `https://drive.google.com/thumbnail?id=${driveMatch[1]}&sz=w1200`
   }
   return url
 }

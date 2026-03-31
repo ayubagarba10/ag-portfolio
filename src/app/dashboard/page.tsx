@@ -821,9 +821,9 @@ export default function DashboardPage() {
         if (oldPath) await supabase.storage.from('portfolio-media').remove([oldPath])
       } else if (replaceUrl.trim()) {
         // Google Drive conversion
-        const driveMatch = replaceUrl.match(/drive\.google\.com\/file\/d\/([^/]+)/)
+        const driveMatch = replaceUrl.match(/drive\.google\.com\/file\/d\/([^/?]+)/)
         newUrl = driveMatch
-          ? `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`
+          ? `https://drive.google.com/thumbnail?id=${driveMatch[1]}&sz=w1200`
           : replaceUrl.trim()
         sourceType = 'external_link'
       }

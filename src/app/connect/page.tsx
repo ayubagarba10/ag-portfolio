@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import PageShell from '@/components/ui/PageShell'
 import { ExternalLink } from 'lucide-react'
 import ContactForm from '@/components/sections/ContactForm'
+import ConnectSocialLinks from '@/components/sections/ConnectSocialLinks'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -34,6 +35,8 @@ export default async function ConnectPage() {
     supabase.from('page_visits').insert({ page_name: 'connect', owner_id: owner.id }).then(() => {})
   }
 
+  const profileImage = owner?.profile_image_url || ''
+
   return (
     <PageShell
       title="Connect"
@@ -41,42 +44,51 @@ export default async function ConnectPage() {
       accentColor="rose-400"
       bgGradient="bg-gradient-to-br from-rose-950/20 via-slate-950 to-slate-950"
     >
-      <div className="space-y-10 max-w-2xl">
-        {/* Social links */}
-        {socialLinks && socialLinks.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {socialLinks.map((link: { id: string; platform_name: string; url: string }) => (
-              <a
-                key={link.id}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex items-center justify-between gap-4 bg-white/[0.03] border border-white/[0.07] rounded-2xl px-6 py-5 hover:border-rose-500/30 hover:bg-white/[0.06] transition-all duration-300"
-              >
-                <span className="font-medium text-white group-hover:text-rose-300 transition-colors">
-                  {link.platform_name}
-                </span>
-                <ExternalLink className="w-4 h-4 text-white/30 group-hover:text-rose-400 transition-colors flex-shrink-0" />
-              </a>
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-10 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-3">
-              <span className="text-2xl">🔗</span>
+      <div className={`grid gap-10 ${profileImage ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 max-w-2xl'}`}>
+        {/* Left — social links + contact form */}
+        <div className="space-y-10">
+          {/* Social links */}
+          {socialLinks && socialLinks.length > 0 ? (
+            <ConnectSocialLinks links={socialLinks} />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-3">
+                <span className="text-2xl">🔗</span>
+              </div>
+              <p className="text-white/30 text-sm">Social links coming soon.</p>
             </div>
-            <p className="text-white/30 text-sm">Social links coming soon.</p>
-          </div>
-        )}
+          )}
 
-        {/* Contact form */}
-        {owner?.contact_email_visible !== false && (
-          <div>
-            <div className="mb-6 pt-6 border-t border-white/[0.06]">
-              <h2 className="text-lg font-semibold text-white mb-1">Send a message</h2>
-              <p className="text-white/40 text-sm">I read every message. I'll get back to you.</p>
+          {/* Contact form */}
+          {owner?.contact_email_visible !== false && (
+            <div>
+              <div className="mb-6 pt-6 border-t border-white/[0.06]">
+                <h2 className="text-lg font-semibold text-white mb-1">Send a message</h2>
+                <p className="text-white/40 text-sm">I read every message. I'll get back to you.</p>
+              </div>
+              <ContactForm />
             </div>
-            <ContactForm />
+          )}
+        </div>
+
+        {/* Right — profile image (only shown if set) */}
+        {profileImage && (
+          <div className="lg:sticky lg:top-6 lg:self-start">
+            <div className="relative w-full aspect-square rounded-2xl overflow-hidden border border-white/[0.07]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={profileImage}
+                alt={owner?.name || 'Profile'}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 to-transparent" />
+              {owner?.name && (
+                <div className="absolute bottom-4 left-4">
+                  <p className="text-white font-semibold text-lg">{owner.name}</p>
+                  {owner.headline && <p className="text-white/60 text-sm mt-0.5">{owner.headline}</p>}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
