@@ -80,3 +80,48 @@
 - `src/components/sections/StoryPost.tsx` — clickable, external URL image handling
 - `src/components/sections/StoryEpisodeCard.tsx` — always-visible episode badge
 - `src/app/dashboard/page.tsx` — all new dashboard sections
+
+---
+
+## 2026-03-30 — Polish: Google Drive fix, lightbox UX, experience gallery, connect image, social icons
+
+### What was broken and how it was fixed
+
+**Google Drive URL previewing**
+- Root cause: `uc?export=view` URLs redirect through a cookie-gated HTML page — browsers block it as a cross-origin image load
+- Fix: switched to `drive.google.com/thumbnail?id=FILE_ID&sz=w1200` which returns the image directly, no redirects
+- Same fix applied to the Replace media modal in the dashboard
+
+**Lightbox — hard to close**
+- Added `cursor-zoom-out` on the backdrop so users intuitively know to click it
+- Added "Click anywhere or press Esc to close" hint text at the bottom of the lightbox
+- Added `onKeyDown` Escape key handler on the backdrop div
+- X button now has a proper rounded pill style and stops propagation correctly
+
+**Experience list page — gallery on the right**
+- Changed from a single-column card list to `lg:grid-cols-2`: cards on the left, large rotating gallery on the right
+- All experience images are pooled into one gallery (visitors see a slideshow of all your work photos as they read through the entries)
+- Gallery is `lg:sticky lg:top-6` so it stays visible while scrolling
+- Falls back to full-width card list if no images have been added yet
+
+**Connect page — profile image**
+- Right column added showing the profile photo uploaded in Dashboard → Profile
+- Name and headline overlaid at the bottom with a gradient
+- Page becomes 2-column when a profile image exists, single-column if not set yet
+- No new database field needed — reuses `owner_profiles.profile_image_url`
+
+**Social link icons**
+- New `ConnectSocialLinks` client component replaces the plain text social link list
+- Detects platform from the `platform_name` field and renders the correct SVG icon
+- Supported: LinkedIn (blue), GitHub, Twitter/X, Instagram (pink), Facebook (blue), YouTube (red), TikTok, Discord (indigo), WhatsApp (green)
+- Falls back to a generic external link icon for unknown platforms
+
+### Files added
+- `src/components/sections/ConnectSocialLinks.tsx`
+
+### Files modified
+- `src/components/ui/MediaInputPanel.tsx` — Google Drive thumbnail URL
+- `src/components/ui/MediaGallery.tsx` — lightbox close UX
+- `src/app/experience/page.tsx` — 2-column layout with gallery
+- `src/app/connect/page.tsx` — profile image column + ConnectSocialLinks
+- `src/app/dashboard/page.tsx` — Google Drive thumbnail fix in replace modal
