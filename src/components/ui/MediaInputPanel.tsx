@@ -12,11 +12,24 @@ interface MediaInputPanelProps {
 }
 
 function convertToDirectUrl(url: string): string {
-  // Google Drive: https://drive.google.com/file/d/FILE_ID/view?...
-  const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/?]+)/)
-  if (driveMatch) {
-    // thumbnail endpoint is much more reliable than uc?export=view
-    return `https://drive.google.com/thumbnail?id=${driveMatch[1]}&sz=w1200`
+  // Pattern 1: /file/d/FILE_ID/view
+  const driveFile = url.match(/drive\.google\.com\/file\/d\/([^/?]+)/)
+  if (driveFile) {
+    return `https://drive.google.com/thumbnail?id=${driveFile[1]}&sz=w1200`
+  }
+  // Pattern 2: /open?id=FILE_ID
+  const driveOpen = url.match(/drive\.google\.com\/open\?id=([^&]+)/)
+  if (driveOpen) {
+    return `https://drive.google.com/thumbnail?id=${driveOpen[1]}&sz=w1200`
+  }
+  // Pattern 3: /uc?id=FILE_ID or /uc?export=...&id=FILE_ID
+  const driveUc = url.match(/drive\.google\.com\/uc\?.*?id=([^&]+)/)
+  if (driveUc) {
+    return `https://drive.google.com/thumbnail?id=${driveUc[1]}&sz=w1200`
+  }
+  // Pattern 4: already in thumbnail format — return as-is
+  if (url.includes('drive.google.com/thumbnail')) {
+    return url
   }
   return url
 }
@@ -229,7 +242,7 @@ export default function MediaInputPanel({ entityType, entityId, ownerId, onUploa
                 alt="preview"
                 className="w-full max-h-40 object-contain rounded-lg border border-white/10"
                 onLoad={() => { setPreviewOk(true); setPreviewing(false) }}
-                onError={() => { setPreviewError("Couldn't auto-preview this URL."); setPreviewing(false) }}
+                onError={() => { setPreviewError("Couldn't auto-preview this URL. Google Drive tip: Make sure sharing is set to 'Anyone with the link'."); setPreviewing(false) }}
               />
             </div>
           )}

@@ -292,3 +292,7 @@ create policy "Owner can manage story_series"
 alter table stories add column if not exists series_id uuid references story_series(id) on delete set null;
 alter table stories add column if not exists episode_number integer;
 alter table stories add column if not exists preview_text text default '';
+
+-- Part 7: episode label (free-text display label) and gallery speed per episode
+alter table stories add column if not exists episode_label text default '';
+alter table stories add column if not exists gallery_speed_seconds integer default 5;

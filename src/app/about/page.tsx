@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import PageShell from '@/components/ui/PageShell'
 import Image from 'next/image'
+import MarkdownRenderer from '@/components/ui/MarkdownRenderer'
 import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
@@ -64,14 +65,14 @@ export default async function AboutPage() {
               <p className="text-emerald-400 text-sm mb-5">{owner.headline}</p>
             )}
             {owner?.bio ? (
-              <p className="text-white/60 leading-relaxed text-sm md:text-base">{owner.bio}</p>
+              <MarkdownRenderer content={owner.bio} className="text-sm md:text-base" />
             ) : (
               <p className="text-white/20 text-sm italic">Bio coming soon.</p>
             )}
 
             {owner?.personal_story && (
               <div className="mt-6 pt-6 border-t border-white/[0.06]">
-                <p className="text-white/60 leading-relaxed text-sm md:text-base whitespace-pre-line">{owner.personal_story}</p>
+                <MarkdownRenderer content={owner.personal_story} className="text-sm md:text-base" />
               </div>
             )}
 

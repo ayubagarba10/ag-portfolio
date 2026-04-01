@@ -13,6 +13,7 @@ import Image from 'next/image'
 import { ensureOwnerProfile } from './actions'
 import MediaInputPanel from '@/components/ui/MediaInputPanel'
 import AIEnhanceButton from '@/components/ui/AIEnhanceButton'
+import MarkdownRenderer from '@/components/ui/MarkdownRenderer'
 
 type Tab = 'profile' | 'projects' | 'experience' | 'stories' | 'social' | 'media' | 'analytics' | 'messages'
 
@@ -103,6 +104,27 @@ function CopyLink({ path }: { path: string }) {
       {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
       {copied ? 'Copied!' : 'Copy link'}
     </button>
+  )
+}
+
+// ─── Markdown Preview Toggle ────────────────────────────────────────────────
+function MdPreview({ content, id, active, onToggle }: { content: string; id: string; active: string | null; onToggle: (id: string | null) => void }) {
+  const isOpen = active === id
+  return (
+    <div className="mt-1">
+      <button
+        type="button"
+        onClick={() => onToggle(isOpen ? null : id)}
+        className="text-xs text-white/30 hover:text-white/60 transition-colors"
+      >
+        {isOpen ? 'Hide preview' : 'Preview markdown'}
+      </button>
+      {isOpen && content && (
+        <div className="mt-2 p-4 bg-white/[0.03] border border-white/10 rounded-xl">
+          <MarkdownRenderer content={content} />
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -239,6 +261,8 @@ export default function DashboardPage() {
   const [sContent, setSContent] = useState('')
   const [sSeriesId, setSSeriesId] = useState('')
   const [sEpisodeNum, setSEpisodeNum] = useState('')
+  const [sEpisodeLabel, setSEpisodeLabel] = useState('')
+  const [sGallerySpeed, setSGallerySpeed] = useState(5)
   const [sPreviewText, setSPreviewText] = useState('')
 
   // New series form
@@ -281,6 +305,8 @@ export default function DashboardPage() {
   const [esContent, setEsContent] = useState('')
   const [esSeriesId, setEsSeriesId] = useState('')
   const [esEpisodeNum, setEsEpisodeNum] = useState('')
+  const [esEpisodeLabel, setEsEpisodeLabel] = useState('')
+  const [esGallerySpeed, setEsGallerySpeed] = useState(5)
   const [esPreviewText, setEsPreviewText] = useState('')
 
   // Edit series state
@@ -288,6 +314,9 @@ export default function DashboardPage() {
   const [essTitle, setEssTitle] = useState('')
   const [essDesc, setEssDesc] = useState('')
   const [essPreviewText, setEssPreviewText] = useState('')
+
+  // Markdown preview field
+  const [previewField, setPreviewField] = useState<string | null>(null)
 
   // Media state (general media tab)
   const [media, setMedia] = useState<any[]>([])
@@ -591,10 +620,12 @@ export default function DashboardPage() {
         preview_text: sPreviewText,
         series_id: sSeriesId || null,
         episode_number: sEpisodeNum ? parseInt(sEpisodeNum) : null,
-        slug: slugify(sTitle) || `story-${Date.now()}`,
+        episode_label: sEpisodeLabel.trim() || null,
+        gallery_speed_seconds: sGallerySpeed,
+        slug: slugify(sTitle) + '-' + Math.random().toString(36).slice(2, 7),
       }).select('*').single()
       if (error) throw error
-      setSTitle(''); setSContent(''); setSSeriesId(''); setSEpisodeNum(''); setSPreviewText('')
+      setSTitle(''); setSContent(''); setSSeriesId(''); setSEpisodeNum(''); setSEpisodeLabel(''); setSGallerySpeed(5); setSPreviewText('')
       setShowNewStory(false)
       await loadAll()
       // Auto-open edit so user can immediately add story images
@@ -602,6 +633,8 @@ export default function DashboardPage() {
         setEsTitle(inserted.title); setEsContent(inserted.content || '')
         setEsPreviewText(inserted.preview_text || ''); setEsSeriesId(inserted.series_id || '')
         setEsEpisodeNum(inserted.episode_number ? String(inserted.episode_number) : '')
+        setEsEpisodeLabel(inserted.episode_label || '')
+        setEsGallerySpeed(inserted.gallery_speed_seconds || 5)
         setEditingStoryId(inserted.id)
       }
     } catch (err: any) {
@@ -625,13 +658,15 @@ export default function DashboardPage() {
     setEsContent(s.content || '')
     setEsSeriesId(s.series_id || '')
     setEsEpisodeNum(s.episode_number?.toString() || '')
+    setEsEpisodeLabel(s.episode_label || '')
+    setEsGallerySpeed(s.gallery_speed_seconds || 5)
     setEsPreviewText(s.preview_text || '')
     setShowNewStory(false)
   }
 
   function cancelEditStory() {
     setEditingStoryId(null)
-    setEsTitle(''); setEsContent(''); setEsSeriesId(''); setEsEpisodeNum(''); setEsPreviewText('')
+    setEsTitle(''); setEsContent(''); setEsSeriesId(''); setEsEpisodeNum(''); setEsEpisodeLabel(''); setEsGallerySpeed(5); setEsPreviewText('')
   }
 
   async function updateStory() {
@@ -642,12 +677,14 @@ export default function DashboardPage() {
           title: esTitle, content: esContent, preview_text: esPreviewText,
           series_id: esSeriesId || null,
           episode_number: esEpisodeNum ? parseInt(esEpisodeNum) : null,
+          episode_label: esEpisodeLabel.trim() || null,
+          gallery_speed_seconds: esGallerySpeed,
           updated_at: new Date().toISOString(),
         })
         .eq('id', editingStoryId)
       if (error) throw error
       setStories(stories.map(s =>
-        s.id === editingStoryId ? { ...s, title: esTitle, content: esContent, preview_text: esPreviewText, series_id: esSeriesId, episode_number: esEpisodeNum ? parseInt(esEpisodeNum) : null } : s
+        s.id === editingStoryId ? { ...s, title: esTitle, content: esContent, preview_text: esPreviewText, series_id: esSeriesId, episode_number: esEpisodeNum ? parseInt(esEpisodeNum) : null, episode_label: esEpisodeLabel.trim() || null, gallery_speed_seconds: esGallerySpeed } : s
       ))
       cancelEditStory()
     } catch (err: any) {
@@ -1007,7 +1044,8 @@ export default function DashboardPage() {
                     <h3 className="text-sm font-medium text-white mb-3">New project</h3>
                     <input value={pTitle} onChange={e => setPTitle(e.target.value)} placeholder="Title *" className={inputCls} />
                     <AIEnhanceButton originalText={pTitle} context="project title for a portfolio website" suggestionType="title" onAccept={setPTitle} />
-                    <textarea value={pDesc} onChange={e => setPDesc(e.target.value)} placeholder="Full description" rows={4} className={textareaCls} />
+                    <textarea value={pDesc} onChange={e => setPDesc(e.target.value)} placeholder="Full description (supports Markdown)" rows={4} className={textareaCls} />
+                    <MdPreview content={pDesc} id="new-project-desc" active={previewField} onToggle={setPreviewField} />
                     <AISuggestButton text={pDesc} context="project description for a portfolio website" onAccept={setPDesc} />
                     <div>
                       <label className="text-xs text-white/40 mb-1 block">Preview text <span className="text-white/20">(shown on the card — 1-2 sentence hook)</span></label>
@@ -1030,7 +1068,8 @@ export default function DashboardPage() {
                         <h3 className="text-sm font-medium text-white mb-3">Edit project</h3>
                         <input value={epTitle} onChange={e => setEpTitle(e.target.value)} placeholder="Title *" className={inputCls} />
                         <AIEnhanceButton originalText={epTitle} context="project title for a portfolio website" suggestionType="title" onAccept={setEpTitle} />
-                        <textarea value={epDesc} onChange={e => setEpDesc(e.target.value)} placeholder="Full description" rows={4} className={textareaCls} />
+                        <textarea value={epDesc} onChange={e => setEpDesc(e.target.value)} placeholder="Full description (supports Markdown)" rows={4} className={textareaCls} />
+                        <MdPreview content={epDesc} id="edit-project-desc" active={previewField} onToggle={setPreviewField} />
                         <AISuggestButton text={epDesc} context="project description for a portfolio website" onAccept={setEpDesc} />
                         <div>
                           <label className="text-xs text-white/40 mb-1 block">Preview text</label>
@@ -1098,7 +1137,8 @@ export default function DashboardPage() {
                       <input value={eCompany} onChange={e => setECompany(e.target.value)} placeholder="Company *"
                         className="bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30" />
                     </div>
-                    <textarea value={eDesc} onChange={e => setEDesc(e.target.value)} placeholder="Full description — bullet points work great (use • or dashes)" rows={4} className={textareaCls} />
+                    <textarea value={eDesc} onChange={e => setEDesc(e.target.value)} placeholder="Full description (supports Markdown — try **bold**, - lists, ## headings)" rows={4} className={textareaCls} />
+                    <MdPreview content={eDesc} id="new-exp-desc" active={previewField} onToggle={setPreviewField} />
                     <AISuggestButton text={eDesc} context="professional role description for a portfolio/resume" onAccept={setEDesc} />
                     <div>
                       <label className="text-xs text-white/40 mb-1 block">Preview text <span className="text-white/20">(hook for the card — 1-2 sentences)</span></label>
@@ -1136,7 +1176,8 @@ export default function DashboardPage() {
                           <input value={eeCompany} onChange={ev => setEeCompany(ev.target.value)} placeholder="Company *"
                             className="bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30" />
                         </div>
-                        <textarea value={eeDesc} onChange={ev => setEeDesc(ev.target.value)} placeholder="Full description" rows={5} className={textareaCls} />
+                        <textarea value={eeDesc} onChange={ev => setEeDesc(ev.target.value)} placeholder="Full description (supports Markdown)" rows={5} className={textareaCls} />
+                        <MdPreview content={eeDesc} id="edit-exp-desc" active={previewField} onToggle={setPreviewField} />
                         <AISuggestButton text={eeDesc} context="professional role description for a portfolio/resume" onAccept={setEeDesc} />
                         <div>
                           <label className="text-xs text-white/40 mb-1 block">Preview text</label>
@@ -1290,7 +1331,8 @@ export default function DashboardPage() {
                       <h3 className="text-sm font-medium text-white mb-3">New story / episode</h3>
                       <input value={sTitle} onChange={e => setSTitle(e.target.value)} placeholder="Title *" className={inputCls} />
                       <AIEnhanceButton originalText={sTitle} context="story or episode title for a portfolio" suggestionType="title" onAccept={setSTitle} />
-                      <textarea value={sContent} onChange={e => setSContent(e.target.value)} placeholder="Tell your story…" rows={6} className={textareaCls} />
+                      <textarea value={sContent} onChange={e => setSContent(e.target.value)} placeholder="Tell your story… (supports Markdown)" rows={6} className={textareaCls} />
+                      <MdPreview content={sContent} id="new-story-content" active={previewField} onToggle={setPreviewField} />
                       <AISuggestButton text={sContent} context="personal story or social life post for a portfolio website" onAccept={setSContent} />
                       <div>
                         <label className="text-xs text-white/40 mb-1 block">Preview text</label>
@@ -1308,11 +1350,16 @@ export default function DashboardPage() {
                             </select>
                           </div>
                           {sSeriesId && (
-                            <input type="number" value={sEpisodeNum} onChange={e => setSEpisodeNum(e.target.value)} placeholder="Episode number (e.g. 1)"
+                            <input type="number" value={sEpisodeNum} onChange={e => setSEpisodeNum(e.target.value)} placeholder="Episode number — controls sort order (e.g. 1)"
                               min={1} className={inputCls} />
+                          )}
+                          {sSeriesId && (
+                            <input type="text" value={sEpisodeLabel} onChange={e => setSEpisodeLabel(e.target.value)} placeholder="Episode label — display text (e.g. 'Episode 1', 'Bonus')"
+                              className={inputCls} />
                           )}
                         </div>
                       )}
+                      <GallerySpeedSlider value={sGallerySpeed} onChange={setSGallerySpeed} />
                       <div className="flex gap-2 pt-1">
                         <button onClick={addStory} className="px-4 py-2 bg-white text-slate-950 text-sm font-semibold rounded-lg hover:bg-white/90">Save</button>
                         <button onClick={() => setShowNewStory(false)} className="px-4 py-2 text-white/40 text-sm hover:text-white/70">Cancel</button>
@@ -1327,7 +1374,8 @@ export default function DashboardPage() {
                           <h3 className="text-sm font-medium text-white mb-3">Edit story</h3>
                           <input value={esTitle} onChange={e => setEsTitle(e.target.value)} placeholder="Title *" className={inputCls} />
                           <AIEnhanceButton originalText={esTitle} context="story title for a portfolio" suggestionType="title" onAccept={setEsTitle} />
-                          <textarea value={esContent} onChange={e => setEsContent(e.target.value)} placeholder="Tell your story…" rows={6} className={textareaCls} />
+                          <textarea value={esContent} onChange={e => setEsContent(e.target.value)} placeholder="Tell your story… (supports Markdown)" rows={6} className={textareaCls} />
+                          <MdPreview content={esContent} id="edit-story-content" active={previewField} onToggle={setPreviewField} />
                           <AISuggestButton text={esContent} context="personal story or social life post for a portfolio website" onAccept={setEsContent} />
                           <div>
                             <label className="text-xs text-white/40 mb-1 block">Preview text</label>
@@ -1345,10 +1393,14 @@ export default function DashboardPage() {
                                 </select>
                               </div>
                               {esSeriesId && (
-                                <input type="number" value={esEpisodeNum} onChange={e => setEsEpisodeNum(e.target.value)} placeholder="Episode number" min={1} className={inputCls} />
+                                <input type="number" value={esEpisodeNum} onChange={e => setEsEpisodeNum(e.target.value)} placeholder="Episode number — controls sort order" min={1} className={inputCls} />
+                              )}
+                              {esSeriesId && (
+                                <input type="text" value={esEpisodeLabel} onChange={e => setEsEpisodeLabel(e.target.value)} placeholder="Episode label — display text (e.g. 'Episode 1', 'Bonus')" className={inputCls} />
                               )}
                             </div>
                           )}
+                          <GallerySpeedSlider value={esGallerySpeed} onChange={setEsGallerySpeed} />
                           <div>
                             <label className="text-xs text-white/40 mb-2 block">Story images</label>
                             <MediaMiniGrid media={storyMediaMap[s.id] || []} onDelete={deleteEntityMedia} onReplace={startReplaceMedia} />

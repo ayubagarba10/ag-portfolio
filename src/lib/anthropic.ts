@@ -37,7 +37,7 @@ export async function suggestImprovedContent(
 Here is the original text:
 "${original}"
 
-Rewrite it to be more compelling, clear, and professional while keeping the owner's authentic voice. Return only the improved text, nothing else.`,
+Rewrite it to be more compelling, clear, and professional while keeping the owner's authentic voice. Use Markdown formatting where appropriate (e.g. **bold** for emphasis, ## headings for sections, - bullet lists for features or achievements). Return only the improved text, nothing else.`,
       },
     ],
   })

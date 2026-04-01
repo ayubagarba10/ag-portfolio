@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Link2, Check } from 'lucide-react'
 import MediaGallery from '@/components/ui/MediaGallery'
+import MarkdownRenderer from '@/components/ui/MarkdownRenderer'
 
 interface Experience {
   id: string
@@ -45,7 +46,6 @@ export default function ExperienceDetail({
     })
   }
 
-  const paragraphs = (exp.description || '').split('\n').filter(Boolean)
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -68,12 +68,8 @@ export default function ExperienceDetail({
             </p>
           </div>
 
-          {paragraphs.length > 0 ? (
-            <div className="space-y-4">
-              {paragraphs.map((para, i) => (
-                <p key={i} className="text-white/70 text-base leading-relaxed">{para}</p>
-              ))}
-            </div>
+          {exp.description ? (
+            <MarkdownRenderer content={exp.description} />
           ) : (
             <p className="text-white/30 text-sm italic">No description added yet.</p>
           )}
@@ -88,7 +84,7 @@ export default function ExperienceDetail({
         </div>
 
         {/* Right — gallery (sticky on desktop, stacked on mobile) */}
-        <div className="lg:sticky lg:top-6 lg:self-start">
+        <div className="lg:sticky lg:top-24 lg:self-start">
           <MediaGallery media={media} speedSeconds={exp.gallery_speed || 5} />
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, ExternalLink, Link2, Check } from 'lucide-react'
 import MediaGallery from '@/components/ui/MediaGallery'
+import MarkdownRenderer from '@/components/ui/MarkdownRenderer'
 
 interface Project {
   id: string
@@ -37,7 +38,6 @@ export default function ProjectDetail({
     })
   }
 
-  const paragraphs = (project.description || '').split('\n').filter(Boolean)
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -53,12 +53,8 @@ export default function ProjectDetail({
         <div className="space-y-6">
           <h1 className="text-3xl font-bold text-white leading-tight">{project.title}</h1>
 
-          {paragraphs.length > 0 ? (
-            <div className="space-y-4">
-              {paragraphs.map((para, i) => (
-                <p key={i} className="text-white/70 text-base leading-relaxed">{para}</p>
-              ))}
-            </div>
+          {project.description ? (
+            <MarkdownRenderer content={project.description} />
           ) : (
             <p className="text-white/30 text-sm italic">No description added yet.</p>
           )}
@@ -85,7 +81,7 @@ export default function ProjectDetail({
         </div>
 
         {/* Right — gallery */}
-        <div className="lg:sticky lg:top-6 lg:self-start">
+        <div className="lg:sticky lg:top-24 lg:self-start">
           <MediaGallery media={media} speedSeconds={project.gallery_speed || 5} />
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Link2, Check } from 'lucide-react'
 import MediaGallery from '@/components/ui/MediaGallery'
+import MarkdownRenderer from '@/components/ui/MarkdownRenderer'
 
 interface MediaItem {
   url: string
@@ -42,7 +43,6 @@ export default function StoryDetail({
     day: 'numeric',
     year: 'numeric',
   })
-  const paragraphs = (story.content || '').split('\n').filter(Boolean)
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -59,12 +59,8 @@ export default function StoryDetail({
             <time className="text-white/30 text-sm mt-2 block">{date}</time>
           </div>
 
-          {paragraphs.length > 0 ? (
-            <div className="space-y-4">
-              {paragraphs.map((para, i) => (
-                <p key={i} className="text-white/70 text-base leading-relaxed">{para}</p>
-              ))}
-            </div>
+          {story.content ? (
+            <MarkdownRenderer content={story.content} />
           ) : (
             <p className="text-white/30 text-sm italic">No content added yet.</p>
           )}
@@ -88,7 +84,7 @@ export default function StoryDetail({
 
         {/* Right — gallery (only if media exists) */}
         {media.length > 0 && (
-          <div className="lg:sticky lg:top-6 lg:self-start">
+          <div className="lg:sticky lg:top-24 lg:self-start">
             <MediaGallery media={media} speedSeconds={5} />
           </div>
         )}

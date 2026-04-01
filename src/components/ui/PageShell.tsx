@@ -20,7 +20,7 @@ export default function PageShell({ children, title, subtitle, accentColor, bgGr
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(30,41,59,0.6)_0%,_transparent_70%)]" />
 
       {/* Nav */}
-      <nav className="relative z-10 flex items-center justify-between px-6 py-5 md:px-12">
+      <nav className="sticky top-0 z-50 bg-slate-950/95 backdrop-blur-sm flex items-center justify-between px-6 py-5 md:px-12">
         <Link
           href="/"
           className="flex items-center gap-2 text-white/50 hover:text-white/90 transition-colors text-sm"

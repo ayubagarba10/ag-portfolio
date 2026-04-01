@@ -45,7 +45,7 @@ export default function MediaGallery({ media, speedSeconds = 5 }: MediaGalleryPr
 
   if (total === 0) {
     return (
-      <div className="w-full aspect-video rounded-2xl bg-white/[0.03] border border-white/[0.07] flex items-center justify-center">
+      <div className="w-full h-[300px] md:h-[400px] rounded-2xl bg-white/[0.03] border border-white/[0.07] flex items-center justify-center">
         <p className="text-white/20 text-sm">No images yet</p>
       </div>
     )
@@ -57,7 +57,7 @@ export default function MediaGallery({ media, speedSeconds = 5 }: MediaGalleryPr
   return (
     <>
       <div
-        className="relative w-full aspect-video rounded-2xl overflow-hidden bg-slate-900 group"
+        className="relative w-full h-[300px] md:h-[400px] rounded-2xl overflow-hidden bg-slate-900 group"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
       >
@@ -84,7 +84,7 @@ export default function MediaGallery({ media, speedSeconds = 5 }: MediaGalleryPr
                 src={mediaUrl}
                 alt={item.alt_text || ''}
                 fill
-                className="object-cover"
+                className="object-contain"
                 sizes="(max-width: 768px) 100vw, 50vw"
               />
             ) : (
@@ -92,7 +92,7 @@ export default function MediaGallery({ media, speedSeconds = 5 }: MediaGalleryPr
               <img
                 src={mediaUrl}
                 alt={item.alt_text || ''}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
             )}
           </motion.div>
@@ -160,7 +160,7 @@ export default function MediaGallery({ media, speedSeconds = 5 }: MediaGalleryPr
               <X className="w-5 h-5" />
             </button>
             <motion.div
-              className="relative max-w-5xl w-full max-h-[85vh] aspect-video cursor-default"
+              className="relative max-w-5xl w-full h-[80vh] cursor-default"
               initial={{ scale: 0.92 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.92 }}

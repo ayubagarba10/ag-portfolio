@@ -4,12 +4,15 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Link2, Check } from 'lucide-react'
 import MediaGallery from '@/components/ui/MediaGallery'
+import MarkdownRenderer from '@/components/ui/MarkdownRenderer'
 
 interface Episode {
   id: string
   title: string
   content?: string
   episode_number?: number
+  episode_label?: string
+  gallery_speed_seconds?: number
   created_at: string
 }
 
@@ -44,7 +47,7 @@ export default function EpisodeDetail({
     day: 'numeric',
     year: 'numeric',
   })
-  const paragraphs = (episode.content || '').split('\n').filter(Boolean)
+  const episodeLabel = episode.episode_label || (episode.episode_number != null ? `Episode ${episode.episode_number}` : null)
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -53,10 +56,10 @@ export default function EpisodeDetail({
         <Link href="/stories" className="hover:text-white/70 transition-colors">Stories</Link>
         <span>/</span>
         <Link href={`/stories/${series.slug}`} className="hover:text-white/70 transition-colors">{series.title}</Link>
-        {episode.episode_number !== undefined && episode.episode_number !== null && (
+        {episodeLabel && (
           <>
             <span>/</span>
-            <span className="text-white/30">Episode {episode.episode_number}</span>
+            <span className="text-white/30">{episodeLabel}</span>
           </>
         )}
       </div>
@@ -65,21 +68,17 @@ export default function EpisodeDetail({
         {/* Left — content */}
         <div className="space-y-6">
           <div>
-            {episode.episode_number !== undefined && episode.episode_number !== null && (
+            {episodeLabel && (
               <p className="text-xs font-medium text-amber-400 uppercase tracking-wider mb-2">
-                Episode {episode.episode_number}
+                {episodeLabel}
               </p>
             )}
             <h1 className="text-3xl font-bold text-white leading-tight">{episode.title}</h1>
             <time className="text-white/30 text-sm mt-2 block">{date}</time>
           </div>
 
-          {paragraphs.length > 0 ? (
-            <div className="space-y-4">
-              {paragraphs.map((para, i) => (
-                <p key={i} className="text-white/70 text-base leading-relaxed">{para}</p>
-              ))}
-            </div>
+          {episode.content ? (
+            <MarkdownRenderer content={episode.content} />
           ) : (
             <p className="text-white/30 text-sm italic">No content added yet.</p>
           )}
@@ -103,8 +102,8 @@ export default function EpisodeDetail({
 
         {/* Right — gallery (only if media exists) */}
         {media.length > 0 && (
-          <div className="lg:sticky lg:top-6 lg:self-start">
-            <MediaGallery media={media} speedSeconds={5} />
+          <div className="lg:sticky lg:top-24 lg:self-start">
+            <MediaGallery media={media} speedSeconds={episode.gallery_speed_seconds || 5} />
           </div>
         )}
       </div>
