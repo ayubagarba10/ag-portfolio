@@ -11,25 +11,31 @@ interface MediaInputPanelProps {
   onUploaded: () => void
 }
 
-function convertToDirectUrl(url: string): string {
-  // Pattern 1: /file/d/FILE_ID/view
-  const driveFile = url.match(/drive\.google\.com\/file\/d\/([^/?]+)/)
-  if (driveFile) {
-    return `https://drive.google.com/thumbnail?id=${driveFile[1]}&sz=w1200`
-  }
+function extractDriveFileId(url: string): string | null {
+  // Pattern 1: /file/d/FILE_ID/...
+  const m1 = url.match(/\/file\/d\/([a-zA-Z0-9_-]{10,})/)
+  if (m1) return m1[1]
   // Pattern 2: /open?id=FILE_ID
-  const driveOpen = url.match(/drive\.google\.com\/open\?id=([^&]+)/)
-  if (driveOpen) {
-    return `https://drive.google.com/thumbnail?id=${driveOpen[1]}&sz=w1200`
-  }
-  // Pattern 3: /uc?id=FILE_ID or /uc?export=...&id=FILE_ID
-  const driveUc = url.match(/drive\.google\.com\/uc\?.*?id=([^&]+)/)
-  if (driveUc) {
-    return `https://drive.google.com/thumbnail?id=${driveUc[1]}&sz=w1200`
-  }
-  // Pattern 4: already in thumbnail format — return as-is
-  if (url.includes('drive.google.com/thumbnail')) {
+  const m2 = url.match(/[?&]id=([a-zA-Z0-9_-]{10,})/)
+  if (m2) return m2[1]
+  // Pattern 3: thumbnail?id=FILE_ID (already converted)
+  const m3 = url.match(/thumbnail\?.*?id=([a-zA-Z0-9_-]{10,})/)
+  if (m3) return m3[1]
+  return null
+}
+
+function convertToDirectUrl(url: string): string {
+  if (!url.includes('drive.google.com') && !url.includes('lh3.googleusercontent.com')) {
     return url
+  }
+  // Already in direct lh3 format — return as-is
+  if (url.includes('lh3.googleusercontent.com/d/')) {
+    return url
+  }
+  const fileId = extractDriveFileId(url)
+  if (fileId) {
+    // lh3.googleusercontent.com/d/FILE_ID is the most reliable Google Drive direct image URL
+    return `https://lh3.googleusercontent.com/d/${fileId}`
   }
   return url
 }

@@ -221,6 +221,7 @@ export default function DashboardPage() {
   const [expMediaMap, setExpMediaMap] = useState<Record<string, any[]>>({})
   const [projMediaMap, setProjMediaMap] = useState<Record<string, any[]>>({})
   const [storyMediaMap, setStoryMediaMap] = useState<Record<string, any[]>>({})
+  const [seriesMediaMap, setSeriesMediaMap] = useState<Record<string, any[]>>({})
 
   // Profile form
   const [name, setName] = useState('')
@@ -381,6 +382,7 @@ export default function DashboardPage() {
         const expMap: Record<string, any[]> = {}
         const projMap: Record<string, any[]> = {}
         const storyMap: Record<string, any[]> = {}
+        const seriesMap: Record<string, any[]> = {}
         allMedia.forEach(m => {
           if (m.associated_entity_type === 'experience' && m.associated_entity_id) {
             if (!expMap[m.associated_entity_id]) expMap[m.associated_entity_id] = []
@@ -391,11 +393,15 @@ export default function DashboardPage() {
           } else if (m.associated_entity_type === 'story' && m.associated_entity_id) {
             if (!storyMap[m.associated_entity_id]) storyMap[m.associated_entity_id] = []
             storyMap[m.associated_entity_id].push(m)
+          } else if (m.associated_entity_type === 'series' && m.associated_entity_id) {
+            if (!seriesMap[m.associated_entity_id]) seriesMap[m.associated_entity_id] = []
+            seriesMap[m.associated_entity_id].push(m)
           }
         })
         setExpMediaMap(expMap)
         setProjMediaMap(projMap)
         setStoryMediaMap(storyMap)
+        setSeriesMediaMap(seriesMap)
       }
 
       fetch('/api/messages')
@@ -1261,7 +1267,8 @@ export default function DashboardPage() {
                       <h3 className="text-sm font-medium text-white mb-3">New series</h3>
                       <input value={ssTitle} onChange={e => setSsTitle(e.target.value)} placeholder="Series title *" className={inputCls} />
                       <AIEnhanceButton originalText={ssTitle} context="story series title for a portfolio" suggestionType="title" onAccept={setSsTitle} />
-                      <textarea value={ssDesc} onChange={e => setSsDesc(e.target.value)} placeholder="What is this series about?" rows={3} className={textareaCls} />
+                      <textarea value={ssDesc} onChange={e => setSsDesc(e.target.value)} placeholder="What is this series about? (supports Markdown)" rows={3} className={textareaCls} />
+                      <MdPreview content={ssDesc} id="new-series-desc" active={previewField} onToggle={setPreviewField} />
                       <div>
                         <label className="text-xs text-white/40 mb-1 block">Preview text</label>
                         <textarea value={ssPreviewText} onChange={e => setSsPreviewText(e.target.value)} placeholder="Short hook for the series card…" rows={2} className={textareaCls} />
@@ -1281,11 +1288,19 @@ export default function DashboardPage() {
                           <h3 className="text-sm font-medium text-white mb-3">Edit series</h3>
                           <input value={essTitle} onChange={e => setEssTitle(e.target.value)} placeholder="Series title *" className={inputCls} />
                           <AIEnhanceButton originalText={essTitle} context="story series title" suggestionType="title" onAccept={setEssTitle} />
-                          <textarea value={essDesc} onChange={e => setEssDesc(e.target.value)} placeholder="Description" rows={3} className={textareaCls} />
+                          <textarea value={essDesc} onChange={e => setEssDesc(e.target.value)} placeholder="Description (supports Markdown)" rows={3} className={textareaCls} />
+                          <MdPreview content={essDesc} id="edit-series-desc" active={previewField} onToggle={setPreviewField} />
                           <div>
                             <label className="text-xs text-white/40 mb-1 block">Preview text</label>
                             <textarea value={essPreviewText} onChange={e => setEssPreviewText(e.target.value)} rows={2} className={textareaCls} />
                             <AIEnhanceButton originalText={essDesc || essPreviewText} context="story series preview" suggestionType="preview_text" onAccept={setEssPreviewText} />
+                          </div>
+                          <div>
+                            <label className="text-xs text-white/40 mb-2 block">Series images <span className="text-white/20">(shown on the series page gallery)</span></label>
+                            <MediaMiniGrid media={seriesMediaMap[s.id] || []} onDelete={deleteEntityMedia} onReplace={startReplaceMedia} />
+                            <div className="mt-3">
+                              <MediaInputPanel entityType="series" entityId={s.id} ownerId={owner?.id || ''} onUploaded={loadAll} />
+                            </div>
                           </div>
                           <div className="flex gap-2 pt-1">
                             <button onClick={updateSeries} className="px-4 py-2 bg-white text-slate-950 text-sm font-semibold rounded-lg hover:bg-white/90">Save</button>
