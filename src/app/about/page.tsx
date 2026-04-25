@@ -82,7 +82,7 @@ export default async function AboutPage() {
                 {socialLinks.map((link) => (
                   <a
                     key={link.id}
-                    href={link.url}
+                    href={/^https?:\/\//i.test(link.url) ? link.url : 'https://' + link.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="px-4 py-2 rounded-full bg-white/[0.05] border border-white/10 text-xs text-white/60 hover:text-white hover:border-white/30 transition-all"

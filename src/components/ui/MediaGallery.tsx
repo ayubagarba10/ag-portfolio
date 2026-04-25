@@ -26,6 +26,15 @@ function isVideo(item: MediaItem) {
   return item.media_type === 'video'
 }
 
+function getEmbedUrl(url: string): string | null {
+  if (url.includes('youtube.com/embed/') || url.includes('player.vimeo.com/video/')) return url
+  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?]+)/)
+  if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}`
+  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/)
+  if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`
+  return null
+}
+
 export default function MediaGallery({ media, speedSeconds = 5 }: MediaGalleryProps) {
   const [current, setCurrent] = useState(0)
   const [paused, setPaused] = useState(false)
@@ -37,11 +46,18 @@ export default function MediaGallery({ media, speedSeconds = 5 }: MediaGalleryPr
   const next = useCallback(() => setCurrent(c => (c + 1) % total), [total])
   const prev = useCallback(() => setCurrent(c => (c - 1 + total) % total), [total])
 
+  const currentUrl = items[current]
+    ? (items[current].source_type === 'external_link' && items[current].external_url
+        ? items[current].external_url
+        : items[current].url) ?? ''
+    : ''
+  const isCurrentEmbed = Boolean(getEmbedUrl(currentUrl))
+
   useEffect(() => {
-    if (total <= 1 || paused) return
+    if (total <= 1 || paused || isCurrentEmbed) return
     const id = setInterval(next, speedSeconds * 1000)
     return () => clearInterval(id)
-  }, [total, paused, speedSeconds, next])
+  }, [total, paused, speedSeconds, next, isCurrentEmbed])
 
   if (total === 0) {
     return (
@@ -70,31 +86,53 @@ export default function MediaGallery({ media, speedSeconds = 5 }: MediaGalleryPr
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
           >
-            {isVideo(item) ? (
-              <video
-                src={mediaUrl}
-                autoPlay
-                muted
-                loop
-                playsInline
-                className="w-full h-full object-cover"
-              />
-            ) : isSupabaseUrl(mediaUrl) ? (
-              <Image
-                src={mediaUrl}
-                alt={item.alt_text || ''}
-                fill
-                className="object-contain"
-                sizes="(max-width: 768px) 100vw, 50vw"
-              />
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={mediaUrl}
-                alt={item.alt_text || ''}
-                className="w-full h-full object-contain"
-              />
-            )}
+            {(() => {
+              const embedUrl = getEmbedUrl(mediaUrl)
+              if (embedUrl) {
+                return (
+                  <iframe
+                    src={embedUrl}
+                    className="w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                )
+              }
+              if (isVideo(item)) {
+                return (
+                  <video
+                    src={mediaUrl}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    preload="metadata"
+                    className="w-full h-full object-cover"
+                  />
+                )
+              }
+              if (isSupabaseUrl(mediaUrl)) {
+                return (
+                  <Image
+                    src={mediaUrl}
+                    alt={item.alt_text || ''}
+                    fill
+                    priority
+                    className="object-contain"
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                  />
+                )
+              }
+              return (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={mediaUrl}
+                  alt={item.alt_text || ''}
+                  loading="eager"
+                  className="w-full h-full object-contain"
+                />
+              )
+            })()}
           </motion.div>
         </AnimatePresence>
 
@@ -166,14 +204,29 @@ export default function MediaGallery({ media, speedSeconds = 5 }: MediaGalleryPr
               exit={{ scale: 0.92 }}
               onClick={e => e.stopPropagation()}
             >
-              {isVideo(item) ? (
-                <video src={mediaUrl} controls autoPlay className="w-full h-full object-contain rounded-xl" />
-              ) : isSupabaseUrl(mediaUrl) ? (
-                <Image src={mediaUrl} alt={item.alt_text || ''} fill className="object-contain rounded-xl" />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={mediaUrl} alt={item.alt_text || ''} className="w-full h-full object-contain rounded-xl" />
-              )}
+              {(() => {
+                const embedUrl = getEmbedUrl(mediaUrl)
+                if (embedUrl) {
+                  return (
+                    <iframe
+                      src={embedUrl}
+                      className="w-full h-full rounded-xl"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  )
+                }
+                if (isVideo(item)) {
+                  return <video src={mediaUrl} controls autoPlay className="w-full h-full object-contain rounded-xl" />
+                }
+                if (isSupabaseUrl(mediaUrl)) {
+                  return <Image src={mediaUrl} alt={item.alt_text || ''} fill className="object-contain rounded-xl" />
+                }
+                return (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={mediaUrl} alt={item.alt_text || ''} className="w-full h-full object-contain rounded-xl" />
+                )
+              })()}
             </motion.div>
           </motion.div>
         )}

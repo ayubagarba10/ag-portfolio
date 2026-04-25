@@ -760,7 +760,11 @@ export default function DashboardPage() {
     if (!owner) { showError('Profile not loaded — please refresh.'); return }
     if (!slPlatform.trim() || !slUrl.trim()) return
     try {
-      const { error } = await supabase.from('social_links').insert({ owner_id: owner.id, platform_name: slPlatform, url: slUrl })
+      let normalizedUrl = slUrl.trim()
+      if (normalizedUrl && !/^https?:\/\//i.test(normalizedUrl)) {
+        normalizedUrl = 'https://' + normalizedUrl
+      }
+      const { error } = await supabase.from('social_links').insert({ owner_id: owner.id, platform_name: slPlatform, url: normalizedUrl })
       if (error) throw error
       setSlPlatform(''); setSlUrl('')
       setShowNewSocial(false)

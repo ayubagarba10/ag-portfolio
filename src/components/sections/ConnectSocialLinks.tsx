@@ -93,13 +93,18 @@ function getPlatformColor(name: string): string {
   return 'text-rose-400'
 }
 
+function ensureAbsoluteUrl(url: string): string {
+  if (!url) return '#'
+  return /^https?:\/\//i.test(url) ? url : 'https://' + url
+}
+
 export default function ConnectSocialLinks({ links }: { links: SocialLink[] }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {links.map((link) => (
         <a
           key={link.id}
-          href={link.url}
+          href={ensureAbsoluteUrl(link.url)}
           target="_blank"
           rel="noopener noreferrer"
           className="group flex items-center justify-between gap-4 bg-white/[0.03] border border-white/[0.07] rounded-2xl px-6 py-5 hover:border-rose-500/30 hover:bg-white/[0.06] transition-all duration-300"

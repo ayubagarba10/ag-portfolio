@@ -28,14 +28,13 @@ function convertToDirectUrl(url: string): string {
   if (!url.includes('drive.google.com') && !url.includes('lh3.googleusercontent.com')) {
     return url
   }
-  // Already in direct lh3 format — return as-is
-  if (url.includes('lh3.googleusercontent.com/d/')) {
+  // Already in thumbnail format — return as-is
+  if (url.includes('drive.google.com/thumbnail')) {
     return url
   }
   const fileId = extractDriveFileId(url)
   if (fileId) {
-    // lh3.googleusercontent.com/d/FILE_ID is the most reliable Google Drive direct image URL
-    return `https://lh3.googleusercontent.com/d/${fileId}`
+    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1200`
   }
   return url
 }
@@ -162,11 +161,14 @@ export default function MediaInputPanel({ entityType, entityId, ownerId, onUploa
       const url = resolvedUrl || convertToDirectUrl(linkUrl.trim())
       const type = detectMediaType(url)
       const isVid = type !== 'image'
+      let saveUrl = url
+      if (type === 'youtube') saveUrl = getYouTubeEmbedUrl(url)
+      else if (type === 'vimeo') saveUrl = getVimeoEmbedUrl(url)
       await insertMediaRecord({
-        url,
+        url: saveUrl,
         media_type: isVid ? 'video' : 'image',
         source_type: 'external_link',
-        external_url: url,
+        external_url: saveUrl,
       })
       reset()
       onUploaded()
